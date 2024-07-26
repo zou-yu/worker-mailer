@@ -1,0 +1,34 @@
+{
+  "name": "worker-mailer",
+  "version": "0.0.4-beta.0",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "keywords": [
+    "cloudflare",
+    "worker",
+    "cloudflare-worker",
+    "email",
+    "smtp"
+  ],
+  "author": "zou-yu",
+  "repository": {
+    "url": "https://github.com/zou-yu/worker-mailer"
+  },
+  "homepage": "https://github.com/zou-yu/worker-mailer",
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest",
+    "format": "prettier '**/*.{json,ts,js,cjs,mjs}' --write --ignore-path .gitignore"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.4.5",
+    "@cloudflare/workers-types": "^4.20240722.0",
+    "@types/node": "^20.14.12",
+    "prettier": "^3.3.3",
+    "tsup": "^8.2.3",
+    "typescript": "^5.5.2",
+    "vitest": "1.5.0",
+    "wrangler": "^3.60.3"
+  }
+}

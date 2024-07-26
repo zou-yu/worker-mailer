@@ -1,0 +1,10 @@
+node_modules/
+dist/
+
+.env
+
+# IDE
+.idea/
+
+# Cloudflare
+.wrangler/
