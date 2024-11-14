@@ -3,6 +3,9 @@ dist/
 
 .env
 
+# OS
+.DS_Store
+
 # IDE
 .idea/
 

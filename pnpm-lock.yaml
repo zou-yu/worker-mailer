@@ -1467,6 +1467,9 @@ packages:
     engines: {node: '>=8'}
     hasBin: true
 
+  worker-mailer@0.0.1-beta.0:
+    resolution: {integrity: sha512-Dz6oFYW2xghmEGQU1vIDxlwkQZ8cPdjKvMZpKmXjmVgo7Iy2wqjUfejQVrxdKM1uAK/6sbNLS4YNOlDDTrkuvg==}
+
   workerd@1.20240718.0:
     resolution: {integrity: sha512-w7lOLRy0XecQTg/ujTLWBiJJuoQvzB3CdQ6/8Wgex3QxFhV9Pbnh3UbwIuUfMw3OCCPQc4o7y+1P+mISAgp6yg==}
     engines: {node: '>=16'}
@@ -2739,6 +2742,8 @@ snapshots:
     dependencies:
       siginfo: 2.0.0
       stackback: 0.0.2
+
+  worker-mailer@0.0.1-beta.0: {}
 
   workerd@1.20240718.0:
     optionalDependencies:

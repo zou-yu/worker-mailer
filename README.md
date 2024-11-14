@@ -1,30 +1,49 @@
 # Worker Mailer
 
+[English](./README.md) | [简体中文](./README_zh-CN.md)
+
+[![npm version](https://badge.fury.io/js/worker-mailer.svg)](https://badge.fury.io/js/worker-mailer)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Worker Mailer is an SMTP client that runs on Cloudflare Workers. It leverages [Cloudflare TCP Sockets](https://developers.cloudflare.com/workers/runtime-apis/tcp-sockets/) and doesn't rely on any other dependencies.
 
 ## Features
 
-- Completely built on the Cloudflare Workers runtime with no other dependencies
-- Full TypeScript type support
-- Supports sending plain text and HTML emails
-- Supports `plain`, `login`, and `CRAM-MD5` SMTP authentication
+- 🚀 Completely built on the Cloudflare Workers runtime with no other dependencies
+- 📝 Full TypeScript type support
+- 📧 Supports sending plain text and HTML emails
+- 🔒 Supports multiple SMTP authentication methods: `plain`, `login`, and `CRAM-MD5`
+- 👥 Rich recipient options: TO, CC, BCC, and Reply-To
+- 🎨 Custom email headers support
 
-## Getting Started
+## Table of Contents
 
-### Installation
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [API Reference](#api-reference)
+- [Limitations](#limitations)
+- [Contributing](#contributing)
+- [License](#license)
+
+## Installation
 
 ```shell
-npm i worker-mailer@beta
+npm i worker-mailer
 ```
 
-### Usage
+## Quick Start
 
-In your `wrangler.toml`, configure the following:
->compatibility_flags = ["nodejs_compat"]
+1. Configure your `wrangler.toml`:
+```toml
+compatibility_flags = ["nodejs_compat"]
+# or compatibility_flags = ["nodejs_compat_v2"]
+```
 
+2. Use in your code:
 ```typescript
 import { WorkerMailer } from 'worker-mailer'
 
+// Connect to SMTP server
 const mailer = await WorkerMailer.connect({
   credentials: {
     username: 'bob@acme.com',
@@ -36,25 +55,105 @@ const mailer = await WorkerMailer.connect({
   secure: true,
 })
 
+// Send email
 await mailer.send({
   from: { name: 'Bob', email: 'bob@acme.com' },
-  // from: 'bob@acme.com'
-  subject: 'Test email',
-  text: 'Plain message',
-  // html: '<p>HTML message</p>',
   to: { name: 'Alice', email: 'alice@acme.com' },
-  // to: [{ name: 'Alice', email: 'alice@acme.com' }, { name: 'Sam', email: 'sam@acme.com' }]
-  // to: 'alice@acme.com'
+  subject: 'Hello from Worker Mailer',
+  text: 'This is a plain text message',
+  html: '<h1>Hello</h1><p>This is an HTML message</p>'
 })
 ```
 
-For more API details, check out the TypeScript declaration file `dist/index.d.ts`.
+## API Reference
 
-## Limitations and Known Issues
+### WorkerMailer.connect(options)
+
+Creates a new SMTP connection.
+
+```typescript
+type WorkerMailerOptions = {
+  host: string;              // SMTP server hostname
+  port: number;              // SMTP server port (usually 587 or 465)
+  secure?: boolean;          // Use TLS (default: false)
+  credentials?: {            // SMTP authentication credentials
+    username: string;
+    password: string;
+  };
+  authType?: 'plain' | 'login' | 'cram-md5' | Array<'plain' | 'login' | 'cram-md5'>;
+  logLevel?: LogLevel;       // Logging level (default: LogLevel.INFO)
+  socketTimeoutMs?: number;  // Socket timeout in milliseconds
+  responseTimeoutMs?: number;// Server response timeout in milliseconds
+}
+```
+
+### mailer.send(options)
+
+Sends an email.
+
+```typescript
+type EmailOptions = {
+  from: string | {          // Sender's email
+    name?: string;
+    email: string;
+  };
+  to: string | string[] | { // Recipients (TO)
+    name?: string;
+    email: string;
+  } | Array<{ name?: string; email: string }>;
+  reply?: string | {        // Reply-To address
+    name?: string;
+    email: string;
+  };
+  cc?: string | string[] | { // Carbon Copy recipients
+    name?: string;
+    email: string;
+  } | Array<{ name?: string; email: string }>;
+  bcc?: string | string[] | { // Blind Carbon Copy recipients
+    name?: string;
+    email: string;
+  } | Array<{ name?: string; email: string }>;
+  subject: string;          // Email subject
+  text?: string;            // Plain text content
+  html?: string;            // HTML content
+  headers?: Record<string, string>; // Custom email headers
+}
+```
+
+### Static Method: WorkerMailer.send()
+
+Send a one-off email without maintaining the connection.
+
+```typescript
+await WorkerMailer.send(
+  {
+    // WorkerMailerOptions
+    host: 'smtp.acme.com',
+    port: 587,
+    credentials: {
+      username: 'user',
+      password: 'pass'
+    }
+  },
+  {
+    // EmailOptions
+    from: 'sender@acme.com',
+    to: 'recipient@acme.com',
+    subject: 'Test',
+    text: 'Hello'
+  }
+)
+```
+
+## Limitations
 
 - **Port Restrictions:** Cloudflare Workers cannot make outbound connections on port 25. You won't be able to send emails via port 25, but common ports like 587 and 465 are supported.
-- **Beta Stage:** This library is currently in beta and is under rapid development. There might be bugs, and there's still a lot of unit testing to be done.
+- **Connection Limits:** Each Worker instance has a limit on the number of concurrent TCP connections. Make sure to properly close connections when done.
 
 ## Contributing
 
 We welcome your contributions! If you encounter any issues or have suggestions while using this library, feel free to open an issue on our GitHub repository.
+
+## License
+
+This project is licensed under the MIT License.

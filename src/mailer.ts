@@ -2,6 +2,7 @@ import { connect } from 'cloudflare:sockets'
 import { createHmac } from 'node:crypto'
 import { BlockingQueue, decode, encode, execTimeout } from './utils'
 import { Email, EmailOptions } from './email'
+import Logger, { LogLevel } from './logger'
 
 export type AuthType = 'plain' | 'login' | 'cram-md5'
 export type Credentials = {
@@ -14,6 +15,7 @@ export type WorkerMailerOptions = {
   secure?: boolean
   credentials?: Credentials
   authType?: AuthType | AuthType[]
+  logLevel?: LogLevel
 
   socketTimeoutMs?: number
   responseTimeoutMs?: number
@@ -33,6 +35,8 @@ export class WorkerMailer {
 
   private readonly reader: ReadableStreamDefaultReader<Uint8Array>
   private readonly writer: WritableStreamDefaultWriter<Uint8Array>
+
+  private readonly logger: Logger
 
   private active = false
 
@@ -70,6 +74,11 @@ export class WorkerMailer {
     )
     this.reader = this.socket.readable.getReader()
     this.writer = this.socket.writable.getWriter()
+    
+    this.logger = new Logger(
+      options.logLevel,
+      `[WorkerMailer:${this.host}:${this.port}]`
+    )
   }
 
   static async connect(options: WorkerMailerOptions): Promise<WorkerMailer> {
@@ -110,7 +119,7 @@ export class WorkerMailer {
         continue
       }
       const data = decode(value).toString()
-      console.log('Server:\n' + data)
+      this.logger.debug('SMTP server response:\n' + data)
       response = response + data
       if (!response.endsWith('\n')) {
         continue
@@ -129,7 +138,7 @@ export class WorkerMailer {
   }
 
   private async write(data: string) {
-    console.log('Write to socket:\n' + data)
+    this.logger.debug('Write to socket:\n' + data)
     await this.writer.write(encode(data))
   }
 
@@ -151,7 +160,7 @@ export class WorkerMailer {
         await this.body()
         this.emailSending!.setSent()
       } catch (e: any) {
-        console.error('Failed to send email: ' + e.message)
+        this.logger.error('Failed to send email: ' + e.message)
         if (!this.active) {
           return
         }
@@ -169,7 +178,7 @@ export class WorkerMailer {
   }
 
   public async close(error: Error = new Error('Mailer closed by client')) {
-    console.info('Mailer is closing for: ', error.message)
+    this.logger.info('Mailer is closing for: ', error.message)
     this.active = false
     this.emailSending?.setSentError?.(error)
     while (this.emailToBeSent.length) {
@@ -184,17 +193,17 @@ export class WorkerMailer {
       // maybe socket is closed now
       // anyway, just keep it simple
     }
-    console.info('Mailer is closed now')
+    this.logger.info('Mailer is closed now')
   }
 
   private async waitForSocketConnected() {
-    console.log(`Connecting to ${this.host}:${this.port}`)
+    this.logger.info(`Connecting to SMTP server`)
     await execTimeout(
       this.socket.opened,
       this.socketTimeoutMs,
       new Error('Socket timeout!'),
     )
-    console.log('Socket connected')
+    this.logger.info('SMTP server connected')
   }
 
   private async greet() {
@@ -213,6 +222,7 @@ export class WorkerMailer {
     if (!response.startsWith('2')) {
       // falling back to HELO
       await this.helo()
+      return
     }
     this.resolveSupportedAuth(response)
   }

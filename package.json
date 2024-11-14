@@ -1,6 +1,6 @@
 {
   "name": "worker-mailer",
-  "version": "0.0.4-beta.0",
+  "version": "1.0.0",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -13,7 +13,8 @@
   ],
   "author": "zou-yu",
   "repository": {
-    "url": "https://github.com/zou-yu/worker-mailer"
+    "type": "git",
+    "url": "https://github.com/zou-yu/worker-mailer.git"
   },
   "homepage": "https://github.com/zou-yu/worker-mailer",
   "scripts": {
