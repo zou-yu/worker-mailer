@@ -23,6 +23,7 @@
     "format": "prettier '**/*.{json,ts,js,cjs,mjs}' --write --ignore-path .gitignore"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.27.9",
     "@cloudflare/vitest-pool-workers": "^0.4.5",
     "@cloudflare/workers-types": "^4.20240722.0",
     "@types/node": "^20.14.12",
