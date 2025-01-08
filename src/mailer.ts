@@ -162,7 +162,6 @@ export class WorkerMailer {
       }
       this.reader.releaseLock()
       this.writer.releaseLock()
-      this.socket.close()
 
       this.socket = this.socket.startTls()
       this.reader = this.socket.readable.getReader()
@@ -212,7 +211,11 @@ export class WorkerMailer {
 
     try {
       await this.writeLine('QUIT')
-      await this.socket.close()
+      await execTimeout(
+        this.socket.close(),
+        1000,
+        new Error('Timeout while closing socket'),
+      )
     } catch (ignore) {
       // maybe socket is closed now
       // anyway, just keep it simple
