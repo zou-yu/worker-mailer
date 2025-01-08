@@ -13,6 +13,7 @@ export type WorkerMailerOptions = {
   host: string
   port: number
   secure?: boolean
+  startTLS?: boolean
   credentials?: Credentials
   authType?: AuthType | AuthType[]
   logLevel?: LogLevel
@@ -27,14 +28,15 @@ export class WorkerMailer {
   private readonly host: string
   private readonly port: number
   private readonly secure: boolean
+  private readonly startTLS: boolean
   private readonly authType: AuthType[]
   private readonly credentials?: Credentials
 
   private readonly socketTimeoutMs: number
   private readonly responseTimeoutMs: number
 
-  private readonly reader: ReadableStreamDefaultReader<Uint8Array>
-  private readonly writer: WritableStreamDefaultWriter<Uint8Array>
+  private reader: ReadableStreamDefaultReader<Uint8Array>
+  private writer: WritableStreamDefaultWriter<Uint8Array>
 
   private readonly logger: Logger
 
@@ -51,6 +53,7 @@ export class WorkerMailer {
     this.port = options.port
     this.host = options.host
     this.secure = !!options.secure
+    this.startTLS = !!options.startTLS
     if (Array.isArray(options.authType)) {
       this.authType = options.authType
     } else if (typeof options.authType === 'string') {
@@ -68,16 +71,20 @@ export class WorkerMailer {
         port: this.port,
       },
       {
-        secureTransport: this.secure ? 'on' : 'off',
+        secureTransport: this.startTLS
+          ? 'starttls'
+          : this.secure
+            ? 'on'
+            : 'off',
         allowHalfOpen: false,
       },
     )
     this.reader = this.socket.readable.getReader()
     this.writer = this.socket.writable.getWriter()
-    
+
     this.logger = new Logger(
       options.logLevel,
-      `[WorkerMailer:${this.host}:${this.port}]`
+      `[WorkerMailer:${this.host}:${this.port}]`,
     )
   }
 
@@ -146,6 +153,23 @@ export class WorkerMailer {
     await this.waitForSocketConnected()
     await this.greet()
     await this.ehlo()
+    if (this.startTLS) {
+      await this.writeLine('STARTTLS')
+
+      const response = await this.readTimeout()
+      if (!response.startsWith('220')) {
+        throw new Error('Failed to start TLS: ' + response)
+      }
+      this.reader.releaseLock()
+      this.writer.releaseLock()
+      this.socket.close()
+
+      this.socket = this.socket.startTls()
+      this.reader = this.socket.readable.getReader()
+      this.writer = this.socket.writable.getWriter()
+
+      await this.ehlo()
+    }
     await this.auth()
     this.active = true
   }
