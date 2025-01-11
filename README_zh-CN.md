@@ -76,6 +76,7 @@ type WorkerMailerOptions = {
   host: string;              // SMTP 服务器主机名
   port: number;              // SMTP 服务器端口（通常是 587 或 465）
   secure?: boolean;          // 使用 TLS（默认：false）
+  startTls?: boolean;        // 升级到 TLS 如果 SMTP 服务器支持（默认：true）
   credentials?: {            // SMTP 认证凭据
     username: string;
     password: string;
@@ -152,7 +153,72 @@ await WorkerMailer.send(
 
 ## 参与贡献
 
-欢迎您的贡献！如果在使用过程中遇到任何问题或有建议，请随时在 GitHub 仓库中提出 issue。
+我们欢迎社区的贡献！以下是参与贡献的指南：
+
+### 开发环境设置
+
+1. Fork 并克隆仓库
+2. 安装依赖：
+   ```bash
+   pnpm install
+   ```
+3. 为您的功能/修复创建新分支：
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+### 测试
+
+1. 单元测试：
+   ```bash
+   npm test
+   ```
+2. 集成测试:
+   ```bash
+   pnpm dlx wrangler dev ./test/worker.ts
+   ```
+   Then, send a POST request to `http://127.0.0.1:8787` with the following JSON body:
+   ```json
+   {
+     "config": {
+       "credentials": {
+         "username": "xxx@xx.com",
+         "password": "xxxx"
+       },
+       "authType": "plain",
+       "host": "smtp.acme.com",
+       "port": 587,
+       "secure": false,
+       "startTls": true
+     },
+     "email": {
+       "from": "xxx@xx.com",
+       "to": "yyy@yy.com",
+       "subject": "Test Email",
+       "text": "Hello World"
+     }
+   }
+   ```
+
+### Pull Request 流程
+
+> 对于重大更改，请先开启一个 issue 讨论您想要改变的内容。
+
+1. 更新文档以反映任何更改
+2. 根据需要添加或更新测试
+3. 确保所有测试通过
+4. 如适用，更新更新日志
+5. 提交 pull request，并清晰描述您的更改
+
+### 报告问题
+
+报告问题时，请包含：
+
+- 问题的清晰描述
+- 复现问题的步骤
+- 预期行为与实际行为
+- 您使用的 worker-mailer 版本
+- 任何相关的代码片段或错误消息
 
 ## 许可证
 

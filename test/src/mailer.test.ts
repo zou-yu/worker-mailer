@@ -3,7 +3,7 @@ import { WorkerMailer } from '../../src/mailer'
 import { connect } from 'cloudflare:sockets'
 
 vi.mock('cloudflare:sockets', () => ({
-  connect: vi.fn()
+  connect: vi.fn(),
 }))
 
 describe('WorkerMailer', () => {
@@ -17,16 +17,22 @@ describe('WorkerMailer', () => {
 
     // Setup mock socket and reader/writer
     mockReader = {
-      read: vi.fn()
+      read: vi.fn(),
+      releaseLock: vi.fn(),
     }
     mockWriter = {
-      write: vi.fn()
+      write: vi.fn(),
+      releaseLock: vi.fn(),
     }
     mockSocket = {
       readable: { getReader: () => mockReader },
       writable: { getWriter: () => mockWriter },
       opened: Promise.resolve(),
-      close: vi.fn()
+      close: vi.fn(),
+      startTls: vi.fn().mockReturnValue({
+        readable: { getReader: () => mockReader },
+        writable: { getWriter: () => mockWriter },
+      }),
     }
 
     // Setup connect mock
@@ -37,26 +43,120 @@ describe('WorkerMailer', () => {
     it('should connect to SMTP server successfully', async () => {
       // Mock successful connection sequence
       mockReader.read
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('220 smtp.example.com ready\r\n') })
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('250-smtp.example.com\r\n250-AUTH PLAIN LOGIN\r\n250 AUTH=PLAIN LOGIN\r\n') })
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('235 Authentication successful\r\n') })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('220 smtp.example.com ready\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode(
+            '250-smtp.example.com\r\n250-AUTH PLAIN LOGIN\r\n250 AUTH=PLAIN LOGIN\r\n',
+          ),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('235 Authentication successful\r\n'),
+        })
 
       const mailer = await WorkerMailer.connect({
         host: 'smtp.example.com',
         port: 587,
         credentials: {
           username: 'test@example.com',
-          password: 'password'
+          password: 'password',
         },
-        authType: ['plain', 'login']
+        authType: ['plain', 'login'],
       })
 
       expect(connect).toHaveBeenCalledWith(
         {
           hostname: 'smtp.example.com',
-          port: 587
+          port: 587,
         },
-        expect.any(Object)
+        expect.any(Object),
+      )
+      expect(mailer).toBeInstanceOf(WorkerMailer)
+    })
+
+    it('should connect to SMTP server successfully with STARTTLS', async () => {
+      // Mock successful connection sequence with STARTTLS
+      mockReader.read
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('220 smtp.example.com ready\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode(
+            '250-smtp.example.com\r\n250-STARTTLS\r\n250-AUTH PLAIN LOGIN\r\n250 AUTH=PLAIN LOGIN\r\n',
+          ),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('220 Ready to start TLS\r\n'),
+        })
+        // After STARTTLS, server expects another EHLO
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode(
+            '250-smtp.example.com\r\n250-AUTH PLAIN LOGIN\r\n250 AUTH=PLAIN LOGIN\r\n',
+          ),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('235 Authentication successful\r\n'),
+        })
+
+      const mailer = await WorkerMailer.connect({
+        host: 'smtp.example.com',
+        port: 587,
+        credentials: {
+          username: 'test@example.com',
+          password: 'password',
+        },
+        authType: ['plain', 'login'],
+      })
+
+      expect(connect).toHaveBeenCalledWith(
+        {
+          hostname: 'smtp.example.com',
+          port: 587,
+        },
+        {
+          secureTransport: 'starttls',
+          allowHalfOpen: false,
+        },
+      )
+      expect(mailer).toBeInstanceOf(WorkerMailer)
+    })
+
+    it('should connect to SMTP server successfully without STARTTLS when secure', async () => {
+      // Mock successful connection sequence without STARTTLS
+      mockReader.read
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('220 smtp.example.com ready\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode(
+            '250-smtp.example.com\r\n250-AUTH PLAIN LOGIN\r\n250 AUTH=PLAIN LOGIN\r\n',
+          ),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('235 Authentication successful\r\n'),
+        })
+
+      const mailer = await WorkerMailer.connect({
+        host: 'smtp.example.com',
+        port: 465,
+        secure: true,
+        credentials: {
+          username: 'test@example.com',
+          password: 'password',
+        },
+        authType: ['plain', 'login'],
+      })
+
+      expect(connect).toHaveBeenCalledWith(
+        {
+          hostname: 'smtp.example.com',
+          port: 465,
+        },
+        {
+          secureTransport: 'on',
+          allowHalfOpen: false,
+        },
       )
       expect(mailer).toBeInstanceOf(WorkerMailer)
     })
@@ -64,11 +164,82 @@ describe('WorkerMailer', () => {
     it('should throw error on connection timeout', async () => {
       mockSocket.opened = new Promise(() => {}) // Never resolves
 
-      await expect(WorkerMailer.connect({
+      await expect(
+        WorkerMailer.connect({
+          host: 'smtp.example.com',
+          port: 587,
+          socketTimeoutMs: 100,
+        }),
+      ).rejects.toThrow('Socket timeout!')
+    })
+  })
+
+  describe('server capabilities', () => {
+    it('should parse server capabilities correctly', async () => {
+      // Mock server response with various capabilities
+      mockReader.read
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('220 smtp.example.com ready\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode(
+            '250-smtp.example.com\r\n250-STARTTLS\r\n250-AUTH PLAIN LOGIN CRAM-MD5\r\n250 HELP\r\n',
+          ),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('220 Ready to start TLS\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode(
+            '250-smtp.example.com\r\n250-AUTH PLAIN LOGIN\r\n250 HELP\r\n',
+          ),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('235 Authentication successful\r\n'),
+        })
+
+      const mailer = await WorkerMailer.connect({
         host: 'smtp.example.com',
         port: 587,
-        socketTimeoutMs: 100
-      })).rejects.toThrow('Socket timeout!')
+        credentials: {
+          username: 'test@example.com',
+          password: 'password',
+        },
+        authType: ['plain'],
+      })
+
+      expect(mailer).toBeInstanceOf(WorkerMailer)
+      // Verify that STARTTLS was initiated due to server capability
+      expect(mockSocket.startTls).toHaveBeenCalled()
+    })
+
+    it('should handle server without STARTTLS capability', async () => {
+      mockReader.read
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('220 smtp.example.com ready\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode(
+            '250-smtp.example.com\r\n250-AUTH PLAIN LOGIN\r\n250 HELP\r\n',
+          ),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('235 Authentication successful\r\n'),
+        })
+
+      const mailer = await WorkerMailer.connect({
+        host: 'smtp.example.com',
+        port: 587,
+        credentials: {
+          username: 'test@example.com',
+          password: 'password',
+        },
+        authType: ['plain'],
+      })
+
+      expect(mailer).toBeInstanceOf(WorkerMailer)
+      // Verify that STARTTLS was not attempted
+      expect(mockSocket.startTls).not.toHaveBeenCalled()
     })
   })
 
@@ -76,41 +247,59 @@ describe('WorkerMailer', () => {
     it('should authenticate with PLAIN auth', async () => {
       // Mock successful connection and auth sequence
       mockReader.read
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('220 smtp.example.com ready\r\n') })
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('250-smtp.example.com\r\n250-AUTH PLAIN LOGIN\r\n250 AUTH=PLAIN LOGIN\r\n') })
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('235 Authentication successful\r\n') })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('220 smtp.example.com ready\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode(
+            '250-smtp.example.com\r\n250-AUTH PLAIN LOGIN\r\n250 AUTH=PLAIN LOGIN\r\n',
+          ),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('235 Authentication successful\r\n'),
+        })
 
       await WorkerMailer.connect({
         host: 'smtp.example.com',
         port: 587,
         credentials: {
           username: 'test@example.com',
-          password: 'password'
+          password: 'password',
         },
-        authType: ['plain']
+        authType: ['plain'],
       })
 
       // Verify AUTH PLAIN command was sent
       expect(mockWriter.write).toHaveBeenCalledWith(
-        expect.any(Uint8Array) // Contains base64 encoded credentials
+        expect.any(Uint8Array), // Contains base64 encoded credentials
       )
     })
 
     it('should throw error on auth failure', async () => {
       mockReader.read
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('220 smtp.example.com ready\r\n') })
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('250-smtp.example.com\r\n250-AUTH PLAIN LOGIN\r\n250 AUTH=PLAIN LOGIN\r\n') })
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('535 Authentication failed\r\n') })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('220 smtp.example.com ready\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode(
+            '250-smtp.example.com\r\n250-AUTH PLAIN LOGIN\r\n250 AUTH=PLAIN LOGIN\r\n',
+          ),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('535 Authentication failed\r\n'),
+        })
 
-      await expect(WorkerMailer.connect({
-        host: 'smtp.example.com',
-        port: 587,
-        credentials: {
-          username: 'test@example.com',
-          password: 'wrong'
-        },
-        authType: ['plain']
-      })).rejects.toThrow('Failed to plain authentication')
+      await expect(
+        WorkerMailer.connect({
+          host: 'smtp.example.com',
+          port: 587,
+          credentials: {
+            username: 'test@example.com',
+            password: 'wrong',
+          },
+          authType: ['plain'],
+        }),
+      ).rejects.toThrow('Failed to plain authentication')
     })
   })
 
@@ -118,30 +307,48 @@ describe('WorkerMailer', () => {
     it('should send email successfully', async () => {
       // Mock successful connection, auth and send sequence
       mockReader.read
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('220 smtp.example.com ready\r\n') })
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('250-smtp.example.com\r\n250-AUTH PLAIN LOGIN\r\n250 AUTH=PLAIN LOGIN\r\n') })
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('235 Authentication successful\r\n') })
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('250 Sender OK\r\n') })
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('250 Recipient OK\r\n') })
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('354 Start mail input\r\n') })
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('250 Message accepted\r\n') })
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('221 Bye\r\n') })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('220 smtp.example.com ready\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode(
+            '250-smtp.example.com\r\n250-AUTH PLAIN LOGIN\r\n250 AUTH=PLAIN LOGIN\r\n',
+          ),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('235 Authentication successful\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('250 Sender OK\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('250 Recipient OK\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('354 Start mail input\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('250 Message accepted\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('221 Bye\r\n'),
+        })
 
       const mailer = await WorkerMailer.connect({
         host: 'smtp.example.com',
         port: 587,
         credentials: {
           username: 'test@example.com',
-          password: 'password'
+          password: 'password',
         },
-        authType: ['plain']
+        authType: ['plain'],
       })
 
       await mailer.send({
         from: 'sender@example.com',
         to: 'recipient@example.com',
         subject: 'Test Email',
-        text: 'Hello World'
+        text: 'Hello World',
       })
 
       // Verify email commands were sent
@@ -153,27 +360,39 @@ describe('WorkerMailer', () => {
 
     it('should handle recipient rejection', async () => {
       mockReader.read
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('220 smtp.example.com ready\r\n') })
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('250-smtp.example.com\r\n250-AUTH PLAIN LOGIN\r\n250 AUTH=PLAIN LOGIN\r\n') })
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('235 Authentication successful\r\n') })
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('250 Sender OK\r\n') })
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('550 Recipient rejected\r\n') })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('220 smtp.example.com ready\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode(
+            '250-smtp.example.com\r\n250-AUTH PLAIN LOGIN\r\n250 AUTH=PLAIN LOGIN\r\n',
+          ),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('235 Authentication successful\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('250 Sender OK\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('550 Recipient rejected\r\n'),
+        })
 
       const mailer = await WorkerMailer.connect({
         host: 'smtp.example.com',
         port: 587,
         credentials: {
           username: 'test@example.com',
-          password: 'password'
+          password: 'password',
         },
-        authType: ['plain']
+        authType: ['plain'],
       })
 
       const sendPromise = mailer.send({
         from: 'sender@example.com',
         to: 'invalid@example.com',
         subject: 'Test Email',
-        text: 'Hello World'
+        text: 'Hello World',
       })
 
       await expect(sendPromise).rejects.toThrow('Invalid RCPT TO')
@@ -183,19 +402,29 @@ describe('WorkerMailer', () => {
   describe('close', () => {
     it('should close connection properly', async () => {
       mockReader.read
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('220 smtp.example.com ready\r\n') })
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('250-smtp.example.com\r\n250-AUTH PLAIN LOGIN\r\n250 AUTH=PLAIN LOGIN\r\n') })
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('235 Authentication successful\r\n') })
-        .mockResolvedValueOnce({ value: new TextEncoder().encode('221 Bye\r\n') })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('220 smtp.example.com ready\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode(
+            '250-smtp.example.com\r\n250-AUTH PLAIN LOGIN\r\n250 AUTH=PLAIN LOGIN\r\n',
+          ),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('235 Authentication successful\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('221 Bye\r\n'),
+        })
 
       const mailer = await WorkerMailer.connect({
         host: 'smtp.example.com',
         port: 587,
         credentials: {
           username: 'test@example.com',
-          password: 'password'
+          password: 'password',
         },
-        authType: ['plain']
+        authType: ['plain'],
       })
 
       await mailer.close()
