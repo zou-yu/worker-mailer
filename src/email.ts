@@ -100,7 +100,7 @@ export class Email {
     this.resolveContentType()
     this.headers['Date'] = new Date().toUTCString()
     this.headers['Message-ID'] =
-      `<${crypto.randomUUID()}@${this.from.email.split('@').pop()}>`
+      `<${crypto.randomUUID()}@${this.from.email.split('@').pop()?.replaceAll('<', '').replaceAll('>', '')}>`
   }
 
   private resolveFrom() {
