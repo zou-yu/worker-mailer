@@ -1,5 +1,5 @@
 import { ok } from 'node:assert'
-import * as crypto from 'crypto'
+import * as crypto from 'node:crypto'
 
 export type User = { name?: string; email: string }
 
@@ -131,7 +131,14 @@ export class Email {
         emailData += `    creation-date="${new Date().toUTCString()}";\r\n`
         emailData += `Content-Transfer-Encoding: base64\r\n\r\n`
 
-        emailData += `${attachment.content}\r\n\r\n`
+        // split the content into multiple lines to avoid line length greater than 76 characters https://en.wikipedia.org/wiki/Base64#Variants_summary_table
+        const lines = attachment.content.match(/.{1,72}/g)
+        if (lines) {
+          emailData += `${lines.join('\r\n')}`
+        } else {
+          emailData += `${attachment.content}`
+        }
+        emailData += '\r\n\r\n'
       }
     }
     emailData += `--${mixedBoundary}--\r\n.\r\n`
