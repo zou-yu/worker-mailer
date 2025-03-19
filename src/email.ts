@@ -1,4 +1,5 @@
 import { ok } from 'node:assert'
+import * as crypto from 'node:crypto'
 
 export type User = { name?: string; email: string }
 
@@ -12,6 +13,7 @@ export type EmailOptions = {
   text?: string
   html?: string
   headers?: Record<string, string>
+  attachments?: { filename: string; content: string; mimeType?: string }[]
 }
 
 export class Email {
@@ -24,6 +26,12 @@ export class Email {
   public readonly subject: string
   public readonly text?: string
   public readonly html?: string
+
+  public readonly attachments?: {
+    filename: string
+    content: string
+    mimeType?: string
+  }[]
 
   public readonly headers: Record<string, string>
 
@@ -54,6 +62,7 @@ export class Email {
     this.subject = options.subject
     this.text = options.text
     this.html = options.html
+    this.attachments = options.attachments
     this.headers = options.headers || {}
   }
 
@@ -79,15 +88,88 @@ export class Email {
 
   public getEmailData() {
     this.resolveHeader()
-    const headersArray: string[] = []
+
+    const headersArray: string[] = ['MIME-Version: 1.0']
     for (const [key, value] of Object.entries(this.headers)) {
       headersArray.push(`${key}: ${value}`)
     }
+    const mixedBoundary = this.generateSafeBoundary('mixed_')
+    const alternativeBoundary = this.generateSafeBoundary('alternative_')
+
+    headersArray.push(
+      `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`,
+    )
     const headers = headersArray.join('\r\n')
 
-    const body = this.html || this.text
+    let emailData = `${headers}\r\n\r\n`
+    emailData += `--${mixedBoundary}\r\n`
 
-    return `${headers}\r\n\r\n${body}\r\n.\r\n`
+    emailData += `Content-Type: multipart/alternative; boundary="${alternativeBoundary}"\r\n\r\n`
+
+    if (this.text) {
+      emailData += `--${alternativeBoundary}\r\n`
+      emailData += `Content-Type: text/plain; charset="UTF-8"\r\n\r\n`
+      emailData += `${this.text}\r\n\r\n`
+    }
+
+    if (this.html) {
+      emailData += `--${alternativeBoundary}\r\n`
+      emailData += `Content-Type: text/html; charset="UTF-8"\r\n\r\n`
+      emailData += `${this.html}\r\n\r\n`
+    }
+
+    emailData += `--${alternativeBoundary}--\r\n`
+
+    if (this.attachments) {
+      for (const attachment of this.attachments) {
+        const mimeType =
+          attachment.mimeType || this.getMimeType(attachment.filename)
+        emailData += `--${mixedBoundary}\r\n`
+        emailData += `Content-Type: ${mimeType}; name="${attachment.filename}"\r\n`
+        emailData += `Content-Description: ${attachment.filename}\r\n`
+        emailData += `Content-Disposition: attachment; filename="${attachment.filename}";\r\n`
+        emailData += `    creation-date="${new Date().toUTCString()}";\r\n`
+        emailData += `Content-Transfer-Encoding: base64\r\n\r\n`
+
+        // split the content into multiple lines to avoid line length greater than 76 characters https://en.wikipedia.org/wiki/Base64#Variants_summary_table
+        const lines = attachment.content.match(/.{1,72}/g)
+        if (lines) {
+          emailData += `${lines.join('\r\n')}`
+        } else {
+          emailData += `${attachment.content}`
+        }
+        emailData += '\r\n\r\n'
+      }
+    }
+    emailData += `--${mixedBoundary}--\r\n.\r\n`
+
+    return emailData
+  }
+
+  private generateSafeBoundary(prefix: string): string {
+    let boundary = prefix + crypto.randomBytes(32).toString('hex')
+
+    boundary = boundary.replace(/[<>@,;:\\/[\]?=" ]/g, '_') // Replace unwanted characters with '_'
+
+    return boundary
+  }
+
+  private getMimeType(filename: string): string {
+    const extension = filename.split('.').pop()?.toLowerCase()
+
+    const mimeTypes: { [key: string]: string } = {
+      txt: 'text/plain',
+      html: 'text/html',
+      csv: 'text/csv',
+      pdf: 'application/pdf',
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      gif: 'image/gif',
+      zip: 'application/zip',
+    }
+
+    return mimeTypes[extension || 'txt'] || 'application/octet-stream' // Default to 'application/octet-stream'
   }
 
   private resolveHeader() {
@@ -97,7 +179,6 @@ export class Email {
     this.resolveCC()
     this.resolveBCC()
     this.resolveSubject()
-    this.resolveContentType()
     this.headers['Date'] = new Date().toUTCString()
     this.headers['Message-ID'] =
       `<${crypto.randomUUID()}@${this.from.email.split('@').pop()}>`
@@ -156,16 +237,6 @@ export class Email {
         return user.email
       })
       this.headers['BCC'] = bccAddresses.join(', ')
-    }
-  }
-
-  private resolveContentType() {
-    if (this.html) {
-      this.headers['Content-Type'] = 'text/html'
-    } else if (this.text) {
-      this.headers['Content-Type'] = 'text/plain'
-    } else {
-      this.headers['Content-Type'] = 'text/plain'
     }
   }
 }

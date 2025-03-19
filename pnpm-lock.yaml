@@ -20,6 +20,9 @@ importers:
       '@types/node':
         specifier: ^20.14.12
         version: 20.14.12
+      letterparser:
+        specifier: ^0.1.8
+        version: 0.1.8
       prettier:
         specifier: ^3.3.3
         version: 3.3.3
@@ -790,6 +793,9 @@ packages:
   balanced-match@1.0.2:
     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
 
+  base64-js@1.5.1:
+    resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
+
   better-path-resolve@1.0.0:
     resolution: {integrity: sha512-pbnl5XzGBdrFU/wT4jqmJVPn2B6UHPBOhzMQkY/SPUPB6QtUXtmBHBIwCbXJol93mOpGMnQyP/+BB19q04xj7g==}
     engines: {node: '>=4'}
@@ -1122,6 +1128,12 @@ packages:
 
   jsonfile@4.0.0:
     resolution: {integrity: sha512-m6F1R3z8jjlf2imQHS2Qez5sjKWQzbuuhuJ/FKYFRZvPE3PuHcSMVZzfsLhGVOkfd20obL5SWEBew5ShlquNxg==}
+
+  lettercoder@0.0.7:
+    resolution: {integrity: sha512-Y8jW6TB69eoir8f5OCo2lulSxCqckPRQtWLyBGz7f+yaPL/nPfDsoLTzsVjl2d+ZEUh5nL0eS446LicJ+mqlJg==}
+
+  letterparser@0.1.8:
+    resolution: {integrity: sha512-mptxVUiQ9fO496nvjFnchVbExvpZSh0ktXaxU4OxkLjwzB/QlLx70oNP4NqmQ6JCBK74HfHBZDJliaw6qu9B1A==}
 
   lilconfig@3.1.2:
     resolution: {integrity: sha512-eop+wDAvpItUys0FWkHIKeC9ybYrTGbU41U5K7+bttZZeohvnY7M9dZ5kB21GNWiFT2q1OoPTvncPCgSOVO5ow==}
@@ -2383,6 +2395,8 @@ snapshots:
 
   balanced-match@1.0.2: {}
 
+  base64-js@1.5.1: {}
+
   better-path-resolve@1.0.0:
     dependencies:
       is-windows: 1.0.2
@@ -2774,6 +2788,15 @@ snapshots:
   jsonfile@4.0.0:
     optionalDependencies:
       graceful-fs: 4.2.11
+
+  lettercoder@0.0.7:
+    dependencies:
+      base64-js: 1.5.1
+
+  letterparser@0.1.8:
+    dependencies:
+      base64-js: 1.5.1
+      lettercoder: 0.0.7
 
   lilconfig@3.1.2: {}
 
