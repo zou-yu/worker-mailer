@@ -18,7 +18,6 @@ export type WorkerMailerOptions = {
   logLevel?: LogLevel
   dsn?:
     | {
-        envelopeId?: string | undefined
         RET?:
           | {
               HEADERS?: boolean
@@ -378,7 +377,7 @@ export class WorkerMailer {
 
   private async mail() {
     await this.writeLine(
-      `MAIL FROM: <${this.emailSending!.from.email}>${this.retBuilder()}${this.dsn?.envelopeId ? ` ENVID=${this.dsn.envelopeId}` : ''}`,
+      `MAIL FROM: <${this.emailSending!.from.email}>${this.retBuilder()}${this.emailSending?.dsnOverride?.envelopeId ? ` ENVID=${this.emailSending?.dsnOverride?.envelopeId}` : ''}`,
     )
     const response = await this.readTimeout()
     if (!response.startsWith('2')) {
@@ -426,13 +425,25 @@ export class WorkerMailer {
 
   private notificationBuilder() {
     const notifications: string[] = []
-    if (this.dsn?.NOTIFY?.SUCCESS) {
+    if (
+      (this.emailSending?.dsnOverride?.NOTIFY &&
+        this.emailSending?.dsnOverride?.NOTIFY?.SUCCESS) ||
+      (!this.emailSending?.dsnOverride?.NOTIFY && this.dsn?.NOTIFY?.SUCCESS)
+    ) {
       notifications.push('SUCCESS')
     }
-    if (this.dsn?.NOTIFY?.FAILURE) {
+    if (
+      (this.emailSending?.dsnOverride?.NOTIFY &&
+        this.emailSending?.dsnOverride?.NOTIFY?.FAILURE) ||
+      (!this.emailSending?.dsnOverride?.NOTIFY && this.dsn?.NOTIFY?.FAILURE)
+    ) {
       notifications.push('FAILURE')
     }
-    if (this.dsn?.NOTIFY?.DELAY) {
+    if (
+      (this.emailSending?.dsnOverride?.NOTIFY &&
+        this.emailSending?.dsnOverride?.NOTIFY?.DELAY) ||
+      (!this.emailSending?.dsnOverride?.NOTIFY && this.dsn?.NOTIFY?.DELAY)
+    ) {
       notifications.push('DELAY')
     }
     return notifications.length > 0
@@ -442,10 +453,18 @@ export class WorkerMailer {
 
   private retBuilder() {
     const ret: string[] = []
-    if (this.dsn?.RET?.HEADERS) {
+    if (
+      (this.emailSending?.dsnOverride?.RET &&
+        this.emailSending?.dsnOverride?.RET?.HEADERS) ||
+      (!this.emailSending?.dsnOverride?.RET && this.dsn?.RET?.HEADERS)
+    ) {
       ret.push('HDRS')
     }
-    if (this.dsn?.RET?.FULL) {
+    if (
+      (this.emailSending?.dsnOverride?.RET &&
+        this.emailSending?.dsnOverride?.RET?.FULL) ||
+      (!this.emailSending?.dsnOverride?.RET && this.dsn?.RET?.FULL)
+    ) {
       ret.push('FULL')
     }
     return ret.length > 0 ? ` RET=${ret.join(',')}` : ''

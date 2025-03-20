@@ -14,6 +14,24 @@ export type EmailOptions = {
   html?: string
   headers?: Record<string, string>
   attachments?: { filename: string; content: string; mimeType?: string }[]
+  dsnOverride?:
+    | {
+        envelopeId?: string | undefined
+        RET?:
+          | {
+              HEADERS?: boolean
+              FULL?: boolean
+            }
+          | undefined
+        NOTIFY?:
+          | {
+              DELAY?: boolean
+              FAILURE?: boolean
+              SUCCESS?: boolean
+            }
+          | undefined
+      }
+    | undefined
 }
 
 export class Email {
@@ -26,6 +44,25 @@ export class Email {
   public readonly subject: string
   public readonly text?: string
   public readonly html?: string
+
+  public readonly dsnOverride?:
+    | {
+        envelopeId?: string | undefined
+        RET?:
+          | {
+              HEADERS?: boolean
+              FULL?: boolean
+            }
+          | undefined
+        NOTIFY?:
+          | {
+              DELAY?: boolean
+              FAILURE?: boolean
+              SUCCESS?: boolean
+            }
+          | undefined
+      }
+    | undefined
 
   public readonly attachments?: {
     filename: string
@@ -63,6 +100,7 @@ export class Email {
     this.text = options.text
     this.html = options.html
     this.attachments = options.attachments
+    this.dsnOverride = options.dsnOverride
     this.headers = options.headers || {}
   }
 
