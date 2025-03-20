@@ -16,7 +16,24 @@ export type WorkerMailerOptions = {
   credentials?: Credentials
   authType?: AuthType | AuthType[]
   logLevel?: LogLevel
-
+  dsn?:
+    | {
+        envelopeId?: string | undefined
+        RET?:
+          | {
+              HEADERS?: boolean
+              FULL?: boolean
+            }
+          | undefined
+        NOTIFY?:
+          | {
+              DELAY?: boolean
+              FAILURE?: boolean
+              SUCCESS?: boolean
+            }
+          | undefined
+      }
+    | undefined
   socketTimeoutMs?: number
   responseTimeoutMs?: number
 }
@@ -37,6 +54,27 @@ export class WorkerMailer {
   private readonly writer: WritableStreamDefaultWriter<Uint8Array>
 
   private readonly logger: Logger
+
+  private readonly dsn:
+    | {
+        envelopeId?: string | undefined
+        RET?:
+          | {
+              HEADERS?: boolean
+              FULL?: boolean
+            }
+          | undefined
+        NOTIFY?:
+          | {
+              DELAY?: boolean
+              FAILURE?: boolean
+              SUCCESS?: boolean
+            }
+          | undefined
+      }
+    | undefined
+
+  private readonly sendNotificationsTo: string | undefined
 
   private active = false
 
@@ -59,6 +97,7 @@ export class WorkerMailer {
       this.authType = []
     }
     this.credentials = options.credentials
+    this.dsn = options.dsn || {}
 
     this.socketTimeoutMs = options.socketTimeoutMs || 60_000
     this.responseTimeoutMs = options.socketTimeoutMs || 30_000
@@ -74,10 +113,10 @@ export class WorkerMailer {
     )
     this.reader = this.socket.readable.getReader()
     this.writer = this.socket.writable.getWriter()
-    
+
     this.logger = new Logger(
       options.logLevel,
-      `[WorkerMailer:${this.host}:${this.port}]`
+      `[WorkerMailer:${this.host}:${this.port}]`,
     )
   }
 
@@ -338,7 +377,9 @@ export class WorkerMailer {
   }
 
   private async mail() {
-    await this.writeLine(`MAIL FROM: <${this.emailSending!.from.email}>`)
+    await this.writeLine(
+      `MAIL FROM: <${this.emailSending!.from.email}>${this.retBuilder()}${this.dsn?.envelopeId ? ` ENVID=${this.dsn.envelopeId}` : ''}`,
+    )
     const response = await this.readTimeout()
     if (!response.startsWith('2')) {
       throw new Error(
@@ -349,7 +390,9 @@ export class WorkerMailer {
 
   private async rcpt() {
     for (let user of this.emailSending!.to) {
-      await this.writeLine(`RCPT TO: <${user.email}>`)
+      await this.writeLine(
+        `RCPT TO: <${user.email}> ${this.notificationBuilder()}`,
+      )
       const rcptResponse = await this.readTimeout()
       if (!rcptResponse.startsWith('2')) {
         throw new Error(`Invalid RCPT TO ${user.email}: ${rcptResponse}`)
@@ -379,5 +422,32 @@ export class WorkerMailer {
     if (!response.startsWith('2')) {
       throw new Error(`Failed to reset: ${response}`)
     }
+  }
+
+  private notificationBuilder() {
+    const notifications: string[] = []
+    if (this.dsn?.NOTIFY?.SUCCESS) {
+      notifications.push('SUCCESS')
+    }
+    if (this.dsn?.NOTIFY?.FAILURE) {
+      notifications.push('FAILURE')
+    }
+    if (this.dsn?.NOTIFY?.DELAY) {
+      notifications.push('DELAY')
+    }
+    return notifications.length > 0
+      ? ` NOTIFY=${notifications.join(',')}`
+      : 'NOTIFY=NEVER'
+  }
+
+  private retBuilder() {
+    const ret: string[] = []
+    if (this.dsn?.RET?.HEADERS) {
+      ret.push('HDRS')
+    }
+    if (this.dsn?.RET?.FULL) {
+      ret.push('FULL')
+    }
+    return ret.length > 0 ? ` RET=${ret.join(',')}` : ''
   }
 }

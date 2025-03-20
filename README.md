@@ -91,6 +91,24 @@ type WorkerMailerOptions = {
   logLevel?: LogLevel // Logging level (default: LogLevel.INFO)
   socketTimeoutMs?: number // Socket timeout in milliseconds
   responseTimeoutMs?: number // Server response timeout in milliseconds
+  dsn: // see rfc1891
+  | {
+        envelopeId?: string | undefined
+        RET?:
+          | {
+              HEADERS?: boolean
+              FULL?: boolean
+            }
+          | undefined
+        NOTIFY?:
+          | {
+              DELAY?: boolean
+              FAILURE?: boolean
+              SUCCESS?: boolean
+            }
+          | undefined
+      }
+    | undefined
 }
 ```
 
