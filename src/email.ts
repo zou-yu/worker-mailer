@@ -135,13 +135,17 @@ export class Email {
     if (this.text) {
       emailData += `--${alternativeBoundary}\r\n`
       emailData += `Content-Type: text/plain; charset="UTF-8"\r\n\r\n`
-      emailData += `${this.text}\r\n\r\n`
+      // maximum line length is 998 characters (see RFC 2046)
+      const lines = this.wrapText(this.text, 998)
+      emailData += `${lines.join('\r\n')}\r\n\r\n`
     }
 
     if (this.html) {
       emailData += `--${alternativeBoundary}\r\n`
       emailData += `Content-Type: text/html; charset="UTF-8"\r\n\r\n`
-      emailData += `${this.html}\r\n\r\n`
+      // maximum line length is 998 characters (see RFC 2046)
+      const lines = this.wrapText(this.html, 998)
+      emailData += `${lines.join('\r\n')}\r\n\r\n`
     }
 
     emailData += `--${alternativeBoundary}--\r\n`
@@ -264,5 +268,41 @@ export class Email {
       })
       this.headers['BCC'] = bccAddresses.join(', ')
     }
+  }
+
+  private wrapText(text: string, maxLength = 998) {
+    const lines = []
+    let currentLine = ''
+
+    const words = text.match(/\S+/g) || [] // Matches non-whitespace chunks
+
+    for (const word of words) {
+      // if the word is longer than the max length, it is forcefully split into chunks
+      if (word.length > maxLength) {
+        if (currentLine) {
+          lines.push(currentLine)
+          currentLine = ''
+        }
+
+        for (let i = 0; i < word.length; i += maxLength) {
+          lines.push(word.slice(i, i + maxLength))
+        }
+      } else if (
+        // current line + word + space + 1 (for the space) <= max length
+        currentLine.length + word.length + (currentLine ? 1 : 0) <=
+        maxLength
+      ) {
+        currentLine += (currentLine ? ' ' : '') + word
+      } else {
+        lines.push(currentLine)
+        currentLine = word
+      }
+    }
+
+    if (currentLine) {
+      lines.push(currentLine)
+    }
+
+    return lines
   }
 }
