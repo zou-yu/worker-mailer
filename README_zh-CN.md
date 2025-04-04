@@ -34,12 +34,14 @@ npm i worker-mailer
 ## 快速开始
 
 1. 配置 `wrangler.toml`：
+
 ```toml
 compatibility_flags = ["nodejs_compat"]
 # or compatibility_flags = ["nodejs_compat_v2"]
 ```
 
 2. 在代码中使用：
+
 ```typescript
 import { WorkerMailer } from 'worker-mailer'
 
@@ -61,7 +63,7 @@ await mailer.send({
   to: { name: 'Alice', email: 'alice@acme.com' },
   subject: '来自 Worker Mailer 的问候',
   text: '这是一条纯文本消息',
-  html: '<h1>你好</h1><p>这是一条 HTML 消息</p>'
+  html: '<h1>你好</h1><p>这是一条 HTML 消息</p>',
 })
 ```
 
@@ -73,18 +75,23 @@ await mailer.send({
 
 ```typescript
 type WorkerMailerOptions = {
-  host: string;              // SMTP 服务器主机名
-  port: number;              // SMTP 服务器端口（通常是 587 或 465）
-  secure?: boolean;          // 使用 TLS（默认：false）
-  startTls?: boolean;        // 升级到 TLS 如果 SMTP 服务器支持（默认：true）
-  credentials?: {            // SMTP 认证凭据
-    username: string;
-    password: string;
-  };
-  authType?: 'plain' | 'login' | 'cram-md5' | Array<'plain' | 'login' | 'cram-md5'>;
-  logLevel?: LogLevel;       // 日志级别（默认：LogLevel.INFO）
-  socketTimeoutMs?: number;  // Socket 超时时间（毫秒）
-  responseTimeoutMs?: number;// 服务器响应超时时间（毫秒）
+  host: string // SMTP 服务器主机名
+  port: number // SMTP 服务器端口（通常是 587 或 465）
+  secure?: boolean // 使用 TLS（默认：false）
+  startTls?: boolean // 升级到 TLS 如果 SMTP 服务器支持（默认：true）
+  credentials?: {
+    // SMTP 认证凭据
+    username: string
+    password: string
+  }
+  authType?:
+    | 'plain'
+    | 'login'
+    | 'cram-md5'
+    | Array<'plain' | 'login' | 'cram-md5'>
+  logLevel?: LogLevel // 日志级别（默认：LogLevel.INFO）
+  socketTimeoutMs?: number // Socket 超时时间（毫秒）
+  responseTimeoutMs?: number // 服务器响应超时时间（毫秒）
 }
 ```
 
@@ -94,30 +101,51 @@ type WorkerMailerOptions = {
 
 ```typescript
 type EmailOptions = {
-  from: string | {          // 发件人邮箱
-    name?: string;
-    email: string;
-  };
-  to: string | string[] | { // 收件人
-    name?: string;
-    email: string;
-  } | Array<{ name?: string; email: string }>;
-  reply?: string | {        // 回复地址
-    name?: string;
-    email: string;
-  };
-  cc?: string | string[] | { // 抄送收件人
-    name?: string;
-    email: string;
-  } | Array<{ name?: string; email: string }>;
-  bcc?: string | string[] | { // 密送收件人
-    name?: string;
-    email: string;
-  } | Array<{ name?: string; email: string }>;
-  subject: string;          // 邮件主题
-  text?: string;            // 纯文本内容
-  html?: string;            // HTML 内容
-  headers?: Record<string, string>; // 自定义邮件头部
+  from:
+    | string
+    | {
+        // 发件人邮箱
+        name?: string
+        email: string
+      }
+  to:
+    | string
+    | string[]
+    | {
+        // 收件人
+        name?: string
+        email: string
+      }
+    | Array<{ name?: string; email: string }>
+  reply?:
+    | string
+    | {
+        // 回复地址
+        name?: string
+        email: string
+      }
+  cc?:
+    | string
+    | string[]
+    | {
+        // 抄送收件人
+        name?: string
+        email: string
+      }
+    | Array<{ name?: string; email: string }>
+  bcc?:
+    | string
+    | string[]
+    | {
+        // 密送收件人
+        name?: string
+        email: string
+      }
+    | Array<{ name?: string; email: string }>
+  subject: string // 邮件主题
+  text?: string // 纯文本内容
+  html?: string // HTML 内容
+  headers?: Record<string, string> // 自定义邮件头部
 }
 ```
 
@@ -133,16 +161,16 @@ await WorkerMailer.send(
     port: 587,
     credentials: {
       username: 'user',
-      password: 'pass'
-    }
+      password: 'pass',
+    },
   },
   {
     // EmailOptions
     from: 'sender@acme.com',
     to: 'recipient@acme.com',
     subject: '测试',
-    text: '你好'
-  }
+    text: '你好',
+  },
 )
 ```
 

@@ -3,10 +3,10 @@ import Logger, { LogLevel } from '../../src/logger'
 
 describe('Logger', () => {
   let consoleSpy: {
-    debug: any;
-    info: any;
-    warn: any;
-    error: any;
+    debug: any
+    info: any
+    warn: any
+    error: any
   }
 
   beforeEach(() => {
@@ -15,7 +15,7 @@ describe('Logger', () => {
       debug: vi.spyOn(console, 'debug').mockImplementation(() => {}),
       info: vi.spyOn(console, 'info').mockImplementation(() => {}),
       warn: vi.spyOn(console, 'warn').mockImplementation(() => {}),
-      error: vi.spyOn(console, 'error').mockImplementation(() => {})
+      error: vi.spyOn(console, 'error').mockImplementation(() => {}),
     }
   })
 
@@ -100,20 +100,30 @@ describe('Logger', () => {
     it('should format message with additional arguments', () => {
       const logger = new Logger(LogLevel.INFO, '[Test]')
       logger.info('message with %s', 'argument')
-      expect(consoleSpy.info).toHaveBeenCalledWith('[Test]message with %s', 'argument')
+      expect(consoleSpy.info).toHaveBeenCalledWith(
+        '[Test]message with %s',
+        'argument',
+      )
     })
 
     it('should handle multiple arguments', () => {
       const logger = new Logger(LogLevel.INFO, '[Test]')
       logger.info('message with %s and %d', 'string', 42)
-      expect(consoleSpy.info).toHaveBeenCalledWith('[Test]message with %s and %d', 'string', 42)
+      expect(consoleSpy.info).toHaveBeenCalledWith(
+        '[Test]message with %s and %d',
+        'string',
+        42,
+      )
     })
 
     it('should handle objects in arguments', () => {
       const logger = new Logger(LogLevel.INFO, '[Test]')
       const obj = { key: 'value' }
       logger.info('message with object:', obj)
-      expect(consoleSpy.info).toHaveBeenCalledWith('[Test]message with object:', obj)
+      expect(consoleSpy.info).toHaveBeenCalledWith(
+        '[Test]message with object:',
+        obj,
+      )
     })
   })
 })

@@ -21,7 +21,7 @@
   "scripts": {
     "build": "tsup",
     "test": "vitest",
-    "format": "prettier '**/*.{json,ts,js,cjs,mjs}' --write --ignore-path .gitignore"
+    "format": "prettier '**/*.{json,ts,js,cjs,mjs,md}' --write --ignore-path .gitignore"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.9",

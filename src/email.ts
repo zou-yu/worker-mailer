@@ -1,4 +1,3 @@
-import { ok } from 'node:assert'
 import * as crypto from 'node:crypto'
 
 export type User = { name?: string; email: string }
@@ -14,25 +13,18 @@ export type EmailOptions = {
   html?: string
   headers?: Record<string, string>
   attachments?: { filename: string; content: string; mimeType?: string }[]
-  dsnOverride?:
-    | {
-        envelopeId?: string | undefined
-        RET?:
-          | {
-              HEADERS?: boolean
-              FULL?: boolean
-            }
-          | undefined
-        NOTIFY?:
-          | {
-              DELAY?: boolean
-              FAILURE?: boolean
-              SUCCESS?: boolean
-            }
-          | undefined
-      }
-    | undefined
-
+  dsnOverride?: {
+    envelopeId?: string | undefined
+    RET?: {
+      HEADERS?: boolean
+      FULL?: boolean
+    }
+    NOTIFY?: {
+      DELAY?: boolean
+      FAILURE?: boolean
+      SUCCESS?: boolean
+    }
+  }
 }
 
 export class Email {
@@ -81,7 +73,9 @@ export class Email {
   })
 
   constructor(options: EmailOptions) {
-    ok(options.text || options.html)
+    if (!options.text && !options.html) {
+      throw new Error('At least one of text or html must be provided')
+    }
 
     if (typeof options.from === 'string') {
       this.from = { email: options.from }
