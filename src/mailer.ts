@@ -17,7 +17,23 @@ export type WorkerMailerOptions = {
   credentials?: Credentials
   authType?: AuthType | AuthType[]
   logLevel?: LogLevel
-
+  dsn?:
+    | {
+        RET?:
+          | {
+              HEADERS?: boolean
+              FULL?: boolean
+            }
+          | undefined
+        NOTIFY?:
+          | {
+              DELAY?: boolean
+              FAILURE?: boolean
+              SUCCESS?: boolean
+            }
+          | undefined
+      }
+    | undefined
   socketTimeoutMs?: number
   responseTimeoutMs?: number
 }
@@ -40,15 +56,37 @@ export class WorkerMailer {
 
   private readonly logger: Logger
 
+  private readonly dsn:
+    | {
+        envelopeId?: string | undefined
+        RET?:
+          | {
+              HEADERS?: boolean
+              FULL?: boolean
+            }
+          | undefined
+        NOTIFY?:
+          | {
+              DELAY?: boolean
+              FAILURE?: boolean
+              SUCCESS?: boolean
+            }
+          | undefined
+      }
+    | undefined
+
+  private readonly sendNotificationsTo: string | undefined
+
   private active = false
 
   private emailSending: Email | null = null
   private emailToBeSent = new BlockingQueue<Email>()
 
   /** SMTP server capabilities **/
+  private supportsDSN = false
   private allowAuth = false
   private authTypeSupported: AuthType[] = []
-  private supportStartTls = false
+  private supportsStartTls = false
 
   private constructor(options: WorkerMailerOptions) {
     this.port = options.port
@@ -63,6 +101,7 @@ export class WorkerMailer {
     }
     this.startTls = options.startTls === undefined ? true : options.startTls
     this.credentials = options.credentials
+    this.dsn = options.dsn || {}
 
     this.socketTimeoutMs = options.socketTimeoutMs || 60_000
     this.responseTimeoutMs = options.socketTimeoutMs || 30_000
@@ -156,7 +195,7 @@ export class WorkerMailer {
     await this.ehlo()
 
     // Handle STARTTLS if needed
-    if (this.startTls && !this.secure && this.supportStartTls) {
+    if (this.startTls && !this.secure && this.supportsStartTls) {
       await this.tls()
       // Re-issue EHLO after STARTTLS as required by RFC 3207
       await this.ehlo()
@@ -283,7 +322,10 @@ export class WorkerMailer {
       this.authTypeSupported.push('cram-md5')
     }
     if (/[ -]STARTTLS\b/i.test(response)) {
-      this.supportStartTls = true
+      this.supportsStartTls = true
+    }
+    if (/[ -]DSN\b/i.test(response)) {
+      this.supportsDSN = true
     }
   }
 
@@ -374,21 +416,31 @@ export class WorkerMailer {
   }
 
   private async mail() {
-    await this.writeLine(`MAIL FROM: <${this.emailSending!.from.email}>`)
+    let message = `MAIL FROM: <${this.emailSending!.from.email}>`
+    if (this.supportsDSN) {
+      message += ` ${this.retBuilder()}`
+      if (this.emailSending?.dsnOverride?.envelopeId) {
+        message += ` ENVID=${this.emailSending?.dsnOverride?.envelopeId}`
+      }
+    }
+
+    await this.writeLine(message)
     const response = await this.readTimeout()
     if (!response.startsWith('2')) {
-      throw new Error(
-        `Invalid MAIL FROM: ${this.emailSending!.from.email} ${response}`,
-      )
+      throw new Error(`Invalid ${message} ${response}`)
     }
   }
 
   private async rcpt() {
     for (let user of this.emailSending!.to) {
-      await this.writeLine(`RCPT TO: <${user.email}>`)
+      let message = `RCPT TO: <${user.email}>`
+      if (this.supportsDSN) {
+        message += this.notificationBuilder()
+      }
+      await this.writeLine(message)
       const rcptResponse = await this.readTimeout()
       if (!rcptResponse.startsWith('2')) {
-        throw new Error(`Invalid RCPT TO ${user.email}: ${rcptResponse}`)
+        throw new Error(`Invalid ${message} ${rcptResponse}`)
       }
     }
   }
@@ -415,5 +467,52 @@ export class WorkerMailer {
     if (!response.startsWith('2')) {
       throw new Error(`Failed to reset: ${response}`)
     }
+  }
+
+  private notificationBuilder() {
+    const notifications: string[] = []
+    if (
+      (this.emailSending?.dsnOverride?.NOTIFY &&
+        this.emailSending?.dsnOverride?.NOTIFY?.SUCCESS) ||
+      (!this.emailSending?.dsnOverride?.NOTIFY && this.dsn?.NOTIFY?.SUCCESS)
+    ) {
+      notifications.push('SUCCESS')
+    }
+    if (
+      (this.emailSending?.dsnOverride?.NOTIFY &&
+        this.emailSending?.dsnOverride?.NOTIFY?.FAILURE) ||
+      (!this.emailSending?.dsnOverride?.NOTIFY && this.dsn?.NOTIFY?.FAILURE)
+    ) {
+      notifications.push('FAILURE')
+    }
+    if (
+      (this.emailSending?.dsnOverride?.NOTIFY &&
+        this.emailSending?.dsnOverride?.NOTIFY?.DELAY) ||
+      (!this.emailSending?.dsnOverride?.NOTIFY && this.dsn?.NOTIFY?.DELAY)
+    ) {
+      notifications.push('DELAY')
+    }
+    return notifications.length > 0
+      ? ` NOTIFY=${notifications.join(',')}`
+      : 'NOTIFY=NEVER'
+  }
+
+  private retBuilder() {
+    const ret: string[] = []
+    if (
+      (this.emailSending?.dsnOverride?.RET &&
+        this.emailSending?.dsnOverride?.RET?.HEADERS) ||
+      (!this.emailSending?.dsnOverride?.RET && this.dsn?.RET?.HEADERS)
+    ) {
+      ret.push('HDRS')
+    }
+    if (
+      (this.emailSending?.dsnOverride?.RET &&
+        this.emailSending?.dsnOverride?.RET?.FULL) ||
+      (!this.emailSending?.dsnOverride?.RET && this.dsn?.RET?.FULL)
+    ) {
+      ret.push('FULL')
+    }
+    return ret.length > 0 ? `RET=${ret.join(',')}` : ''
   }
 }

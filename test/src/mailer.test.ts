@@ -303,6 +303,271 @@ describe('WorkerMailer', () => {
     })
   })
 
+  describe('dsn', () => {
+    it('should not send DSN if not supported', async () => {
+      mockReader.read
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('220 smtp.example.com ready\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode(
+            '250-smtp.example.com\r\n250-AUTH PLAIN LOGIN\r\n250 AUTH=PLAIN LOGIN\r\n',
+          ),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('235 Authentication successful\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('250 Sender OK\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('250 Recipient OK\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('354 Start mail input\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('250 Message accepted\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('221 Bye\r\n'),
+        })
+
+      const mailer = await WorkerMailer.connect({
+        host: 'smtp.example.com',
+        port: 587,
+        credentials: {
+          username: 'test@example.com',
+          password: 'password',
+        },
+        authType: ['plain'],
+        dsn: {
+          RET: {
+            HEADERS: true,
+            FULL: false,
+          },
+          NOTIFY: {
+            DELAY: true,
+            FAILURE: true,
+            SUCCESS: false,
+          },
+        },
+      })
+
+      await mailer.send({
+        from: 'sender@example.com',
+        to: 'recipient@example.com',
+        subject: 'Test Email with DSN',
+        text: 'Hello World',
+        dsnOverride: {
+          envelopeId: '1234567890',
+          RET: {
+            HEADERS: false,
+            FULL: true,
+          },
+          NOTIFY: {
+            DELAY: false,
+            FAILURE: false,
+            SUCCESS: true,
+          },
+        },
+      })
+
+      const normalize = (str: string) => str.replace(/\s+/g, ' ').trim()
+      const calls = mockWriter.write.mock.calls.map(([arg]: any[]) =>
+        normalize(Buffer.from(arg).toString()),
+      )
+
+      expect(
+        calls.some((call: string) =>
+          call.includes(normalize('MAIL FROM: <sender@example.com>')),
+        ),
+      ).toBe(true)
+      expect(
+        calls.some((call: string) =>
+          call.includes(normalize('RCPT TO: <recipient@example.com>')),
+        ),
+      ).toBe(true)
+    })
+
+    it('dsnOverride should override dsn', async () => {
+      mockReader.read
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('220 smtp.example.com ready\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode(
+            '250-smtp.example.com\r\n250-AUTH PLAIN LOGIN\r\n250-AUTH=PLAIN LOGIN\r\n250 DSN\r\n',
+          ),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('235 Authentication successful\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('250 Sender OK\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('250 Recipient OK\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('354 Start mail input\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('250 Message accepted\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('221 Bye\r\n'),
+        })
+
+      const mailer = await WorkerMailer.connect({
+        host: 'smtp.example.com',
+        port: 587,
+        credentials: {
+          username: 'test@example.com',
+          password: 'password',
+        },
+        authType: ['plain'],
+        dsn: {
+          RET: {
+            HEADERS: true,
+            FULL: false,
+          },
+          NOTIFY: {
+            DELAY: true,
+            FAILURE: true,
+            SUCCESS: false,
+          },
+        },
+      })
+
+      await mailer.send({
+        from: 'sender@example.com',
+        to: 'recipient@example.com',
+        subject: 'Test Email with DSN',
+        text: 'Hello World',
+        dsnOverride: {
+          envelopeId: '1234567890',
+          RET: {
+            HEADERS: false,
+            FULL: true,
+          },
+          NOTIFY: {
+            DELAY: false,
+            FAILURE: false,
+            SUCCESS: true,
+          },
+        },
+      })
+
+      const normalize = (str: string) => str.replace(/\s+/g, ' ').trim()
+      const calls = mockWriter.write.mock.calls.map(([arg]: any[]) =>
+        normalize(Buffer.from(arg).toString()),
+      )
+
+      expect(
+        calls.some((call: string) =>
+          call.includes(
+            normalize(
+              'MAIL FROM: <sender@example.com> RET=FULL ENVID=1234567890',
+            ),
+          ),
+        ),
+      ).toBe(true)
+      expect(
+        calls.some((call: string) =>
+          call.includes(
+            normalize('RCPT TO: <recipient@example.com> NOTIFY=SUCCESS'),
+          ),
+        ),
+      ).toBe(true)
+    })
+
+    it('should send email with DSN request', async () => {
+      mockReader.read
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('220 smtp.example.com ready\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode(
+            '250-smtp.example.com\r\n250-AUTH PLAIN LOGIN\r\n250-AUTH=PLAIN LOGIN\r\n250 DSN\r\n',
+          ),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('235 Authentication successful\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('250 Sender OK\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('250 Recipient OK\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('354 Start mail input\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('250 Message accepted\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('221 Bye\r\n'),
+        })
+
+      const mailer = await WorkerMailer.connect({
+        host: 'smtp.example.com',
+        port: 587,
+        credentials: {
+          username: 'test@example.com',
+          password: 'password',
+        },
+        authType: ['plain'],
+        dsn: {
+          RET: {
+            HEADERS: true,
+            FULL: false,
+          },
+          NOTIFY: {
+            DELAY: true,
+            FAILURE: true,
+            SUCCESS: true,
+          },
+        },
+      })
+
+      await mailer.send({
+        from: 'sender@example.com',
+        to: 'recipient@example.com',
+        subject: 'Test Email with DSN',
+        text: 'This is a DSN test email',
+        dsnOverride: {
+          envelopeId: '1234567890',
+        },
+      })
+
+      const normalize = (str: string) => str.replace(/\s+/g, ' ').trim()
+      const calls = mockWriter.write.mock.calls.map(([arg]: any[]) =>
+        normalize(Buffer.from(arg).toString()),
+      )
+
+      expect(
+        calls.some((call: string) =>
+          call.includes(
+            normalize(
+              'RCPT TO: <recipient@example.com> NOTIFY=SUCCESS,FAILURE,DELAY',
+            ),
+          ),
+        ),
+      ).toBe(true)
+      expect(
+        calls.some((call: string) =>
+          call.includes(
+            normalize(
+              'MAIL FROM: <sender@example.com> RET=HDRS ENVID=1234567890',
+            ),
+          ),
+        ),
+      ).toBe(true)
+    })
+  })
+
   describe('email sending', () => {
     it('should send email successfully', async () => {
       // Mock successful connection, auth and send sequence

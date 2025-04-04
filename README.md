@@ -75,18 +75,40 @@ Creates a new SMTP connection.
 
 ```typescript
 type WorkerMailerOptions = {
-  host: string;              // SMTP server hostname
-  port: number;              // SMTP server port (usually 587 or 465)
-  secure?: boolean;          // Use TLS (default: false)
-  startTls?: boolean;        // Upgrade to TLS if SMTP server supports (default: true)
-  credentials?: {            // SMTP authentication credentials
-    username: string;
-    password: string;
-  };
-  authType?: 'plain' | 'login' | 'cram-md5' | Array<'plain' | 'login' | 'cram-md5'>;
-  logLevel?: LogLevel;       // Logging level (default: LogLevel.INFO)
-  socketTimeoutMs?: number;  // Socket timeout in milliseconds
-  responseTimeoutMs?: number;// Server response timeout in milliseconds
+  host: string // SMTP server hostname
+  port: number // SMTP server port (usually 587 or 465)
+  secure?: boolean // Use TLS (default: false)
+  startTls?: boolean // Upgrade to TLS if SMTP server supports (default: true)
+  credentials?: {
+    // SMTP authentication credentials
+    username: string
+    password: string
+  }
+  authType?:
+    | 'plain'
+    | 'login'
+    | 'cram-md5'
+    | Array<'plain' | 'login' | 'cram-md5'>
+  logLevel?: LogLevel // Logging level (default: LogLevel.INFO)
+  socketTimeoutMs?: number // Socket timeout in milliseconds
+  responseTimeoutMs?: number // Server response timeout in milliseconds
+  dsn?: // see rfc1891
+  | {
+        RET?:
+          | {
+              HEADERS?: boolean
+              FULL?: boolean
+            }
+          | undefined
+        NOTIFY?:
+          | {
+              DELAY?: boolean
+              FAILURE?: boolean
+              SUCCESS?: boolean
+            }
+          | undefined
+      }
+    | undefined
 }
 ```
 
@@ -142,6 +164,24 @@ type EmailOptions = {
   html?: string // HTML content
   headers?: Record<string, string> // Custom email headers
   attachments?: { filename: string; content: string; mimeType?: string }[] // Attachments, content must be base64-encoded, it will try to infer mimeType if not set
+  dsnOverride?: // overrides dsn defined in WorkerMailer, if not set, it will take the WorkerMailer-Option.
+  | {
+        envelopeId?: string | undefined
+        RET?:
+          | {
+              HEADERS?: boolean
+              FULL?: boolean
+            }
+          | undefined
+        NOTIFY?:
+          | {
+              DELAY?: boolean
+              FAILURE?: boolean
+              SUCCESS?: boolean
+            }
+          | undefined
+      }
+    | undefined
 }
 ```
 
