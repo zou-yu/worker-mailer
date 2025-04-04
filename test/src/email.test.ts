@@ -92,6 +92,32 @@ describe('Email', () => {
       ])
     })
 
+    it('should not include lines longer than 998 characters', () => {
+      const email = new Email({
+        from: 'sender@example.com',
+        to: 'recipient@example.com',
+        subject: 'Test Subject',
+        text: 'Hello, this is a test email with a long text. '.repeat(50),
+        html: `<p>${'Hello, this is a test email with a long text. '.repeat(50)}</p>`,
+      })
+      const data = email.getEmailData()
+      const msg = extract(data)
+      // expect the text to be the same if linebreaks are removed (we are adding a space and removing all double spaces due to the way the text is wrapped)
+      expect(msg.text!.replace(/\n/g, ' ').replaceAll('  ', ' ')).toBe(
+        'Hello, this is a test email with a long text. '.repeat(50).trim(),
+      )
+      expect(msg.html!.replace(/\n/g, ' ').replaceAll('  ', ' ')).toBe(
+        '<p>' +
+          'Hello, this is a test email with a long text. '.repeat(50) +
+          '</p>',
+      )
+      const lines = data.split('\r\n')
+
+      for (const line of lines) {
+        expect(line.length).toBeLessThanOrEqual(998)
+      }
+    })
+
     it('should include CC and BCC headers when provided', () => {
       const email = new Email({
         from: 'sender@example.com',
