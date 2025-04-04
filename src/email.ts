@@ -32,6 +32,7 @@ export type EmailOptions = {
           | undefined
       }
     | undefined
+
 }
 
 export class Email {
