@@ -6,8 +6,8 @@
   "types": "./dist/index.d.ts",
   "keywords": [
     "cloudflare",
-    "worker",
-    "cloudflare-worker",
+    "workers",
+    "cloudflare-workers",
     "email",
     "smtp"
   ],
@@ -16,6 +16,7 @@
     "type": "git",
     "url": "https://github.com/zou-yu/worker-mailer.git"
   },
+  "license": "MIT",
   "homepage": "https://github.com/zou-yu/worker-mailer",
   "scripts": {
     "build": "tsup",

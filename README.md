@@ -75,22 +75,18 @@ Creates a new SMTP connection.
 
 ```typescript
 type WorkerMailerOptions = {
-  host: string // SMTP server hostname
-  port: number // SMTP server port (usually 587 or 465)
-  secure?: boolean // Use TLS (default: false)
-  credentials?: {
-    // SMTP authentication credentials
-    username: string
-    password: string
-  }
-  authType?:
-    | 'plain'
-    | 'login'
-    | 'cram-md5'
-    | Array<'plain' | 'login' | 'cram-md5'>
-  logLevel?: LogLevel // Logging level (default: LogLevel.INFO)
-  socketTimeoutMs?: number // Socket timeout in milliseconds
-  responseTimeoutMs?: number // Server response timeout in milliseconds
+  host: string;              // SMTP server hostname
+  port: number;              // SMTP server port (usually 587 or 465)
+  secure?: boolean;          // Use TLS (default: false)
+  startTls?: boolean;        // Upgrade to TLS if SMTP server supports (default: true)
+  credentials?: {            // SMTP authentication credentials
+    username: string;
+    password: string;
+  };
+  authType?: 'plain' | 'login' | 'cram-md5' | Array<'plain' | 'login' | 'cram-md5'>;
+  logLevel?: LogLevel;       // Logging level (default: LogLevel.INFO)
+  socketTimeoutMs?: number;  // Socket timeout in milliseconds
+  responseTimeoutMs?: number;// Server response timeout in milliseconds
 }
 ```
 
@@ -188,7 +184,72 @@ await WorkerMailer.send(
 
 ## Contributing
 
-We welcome your contributions! If you encounter any issues or have suggestions while using this library, feel free to open an issue on our GitHub repository.
+We welcome contributions from the community! Here's how you can help:
+
+### Development Setup
+
+1. Fork and clone the repository
+2. Install dependencies:
+   ```bash
+   pnpm install
+   ```
+3. Create a new branch for your feature or fix:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+### Testing
+
+1. Unit Tests:
+   ```bash
+   npm test
+   ```
+2. Integration Tests:
+   ```bash
+   pnpm dlx wrangler dev ./test/worker.ts
+   ```
+   Then, send a POST request to `http://127.0.0.1:8787` with the following JSON body:
+   ```json
+   {
+     "config": {
+       "credentials": {
+         "username": "xxx@xx.com",
+         "password": "xxxx"
+       },
+       "authType": "plain",
+       "host": "smtp.acme.com",
+       "port": 587,
+       "secure": false,
+       "startTls": true
+     },
+     "email": {
+       "from": "xxx@xx.com",
+       "to": "yyy@yy.com",
+       "subject": "Test Email",
+       "text": "Hello World"
+     }
+   }
+   ```
+
+### Pull Request Process
+
+> For major changes, please open an issue first to discuss what you would like to change.
+
+1. Update documentation to reflect any changes
+2. Add or update tests as needed
+3. Ensure all tests pass
+4. Update the changelog if applicable
+5. Submit a pull request with a clear description of your changes
+
+### Reporting Issues
+
+When reporting issues, please include:
+
+- A clear description of the problem
+- Steps to reproduce the issue
+- Expected vs actual behavior
+- Version of worker-mailer you're using
+- Any relevant code snippets or error messages
 
 ## License
 
