@@ -13,10 +13,27 @@ export type WorkerMailerOptions = {
   host: string
   port: number
   secure?: boolean
+  startTls?: boolean
   credentials?: Credentials
   authType?: AuthType | AuthType[]
   logLevel?: LogLevel
-
+  dsn?:
+    | {
+        RET?:
+          | {
+              HEADERS?: boolean
+              FULL?: boolean
+            }
+          | undefined
+        NOTIFY?:
+          | {
+              DELAY?: boolean
+              FAILURE?: boolean
+              SUCCESS?: boolean
+            }
+          | undefined
+      }
+    | undefined
   socketTimeoutMs?: number
   responseTimeoutMs?: number
 }
@@ -27,25 +44,49 @@ export class WorkerMailer {
   private readonly host: string
   private readonly port: number
   private readonly secure: boolean
+  private readonly startTls: boolean
   private readonly authType: AuthType[]
   private readonly credentials?: Credentials
 
   private readonly socketTimeoutMs: number
   private readonly responseTimeoutMs: number
 
-  private readonly reader: ReadableStreamDefaultReader<Uint8Array>
-  private readonly writer: WritableStreamDefaultWriter<Uint8Array>
+  private reader: ReadableStreamDefaultReader<Uint8Array>
+  private writer: WritableStreamDefaultWriter<Uint8Array>
 
   private readonly logger: Logger
+
+  private readonly dsn:
+    | {
+        envelopeId?: string | undefined
+        RET?:
+          | {
+              HEADERS?: boolean
+              FULL?: boolean
+            }
+          | undefined
+        NOTIFY?:
+          | {
+              DELAY?: boolean
+              FAILURE?: boolean
+              SUCCESS?: boolean
+            }
+          | undefined
+      }
+    | undefined
+
+  private readonly sendNotificationsTo: string | undefined
 
   private active = false
 
   private emailSending: Email | null = null
   private emailToBeSent = new BlockingQueue<Email>()
 
-  /** SMTP server status **/
+  /** SMTP server capabilities **/
+  private supportsDSN = false
   private allowAuth = false
   private authTypeSupported: AuthType[] = []
+  private supportsStartTls = false
 
   private constructor(options: WorkerMailerOptions) {
     this.port = options.port
@@ -58,7 +99,9 @@ export class WorkerMailer {
     } else {
       this.authType = []
     }
+    this.startTls = options.startTls === undefined ? true : options.startTls
     this.credentials = options.credentials
+    this.dsn = options.dsn || {}
 
     this.socketTimeoutMs = options.socketTimeoutMs || 60_000
     this.responseTimeoutMs = options.socketTimeoutMs || 30_000
@@ -68,16 +111,20 @@ export class WorkerMailer {
         port: this.port,
       },
       {
-        secureTransport: this.secure ? 'on' : 'off',
+        secureTransport: this.secure
+          ? 'on'
+          : this.startTls
+            ? 'starttls'
+            : 'off',
         allowHalfOpen: false,
       },
     )
     this.reader = this.socket.readable.getReader()
     this.writer = this.socket.writable.getWriter()
-    
+
     this.logger = new Logger(
       options.logLevel,
-      `[WorkerMailer:${this.host}:${this.port}]`
+      `[WorkerMailer:${this.host}:${this.port}]`,
     )
   }
 
@@ -146,6 +193,14 @@ export class WorkerMailer {
     await this.waitForSocketConnected()
     await this.greet()
     await this.ehlo()
+
+    // Handle STARTTLS if needed
+    if (this.startTls && !this.secure && this.supportsStartTls) {
+      await this.tls()
+      // Re-issue EHLO after STARTTLS as required by RFC 3207
+      await this.ehlo()
+    }
+
     await this.auth()
     this.active = true
   }
@@ -177,23 +232,25 @@ export class WorkerMailer {
     }
   }
 
-  public async close(error: Error = new Error('Mailer closed by client')) {
-    this.logger.info('Mailer is closing for: ', error.message)
+  public async close(error?: Error) {
     this.active = false
-    this.emailSending?.setSentError?.(error)
+    this.logger.info('WorkerMailer is closed', error?.message || '')
+    this.emailSending?.setSentError?.(
+      error || new Error('WorkerMailer is shutting down'),
+    )
     while (this.emailToBeSent.length) {
       const email = await this.emailToBeSent.dequeue()
-      email.setSentError(error)
+      email.setSentError(error || new Error('WorkerMailer is shutting down'))
     }
 
     try {
       await this.writeLine('QUIT')
+      await this.readTimeout()
       await this.socket.close()
     } catch (ignore) {
       // maybe socket is closed now
       // anyway, just keep it simple
     }
-    this.logger.info('Mailer is closed now')
   }
 
   private async waitForSocketConnected() {
@@ -209,13 +266,13 @@ export class WorkerMailer {
   private async greet() {
     const response = await this.readTimeout()
     if (!response.startsWith('220')) {
-      throw new Error(`Invalid greeting. ${response}`)
+      throw new Error('Failed to connect to SMTP server: ' + response)
     }
   }
 
   private async ehlo() {
     await this.writeLine(`EHLO 127.0.0.1`)
-    let response = await this.readTimeout()
+    const response = await this.readTimeout()
     if (response.startsWith('421')) {
       throw new Error(`Failed to EHLO. ${response}`)
     }
@@ -224,10 +281,34 @@ export class WorkerMailer {
       await this.helo()
       return
     }
-    this.resolveSupportedAuth(response)
+    this.parseCapabilities(response)
   }
 
-  private resolveSupportedAuth(response: string) {
+  private async helo() {
+    await this.writeLine(`HELO 127.0.0.1`)
+    const response = await this.readTimeout()
+    if (response.startsWith('2')) {
+      return
+    }
+    throw new Error(`Failed to HELO. ${response}`)
+  }
+
+  private async tls() {
+    await this.writeLine('STARTTLS')
+    const response = await this.readTimeout()
+    if (!response.startsWith('220')) {
+      throw new Error('Failed to start TLS: ' + response)
+    }
+
+    // Upgrade the socket to TLS
+    this.reader.releaseLock()
+    this.writer.releaseLock()
+    this.socket = this.socket.startTls()
+    this.reader = this.socket.readable.getReader()
+    this.writer = this.socket.writable.getWriter()
+  }
+
+  private parseCapabilities(response: string) {
     if (/[ -]AUTH\b/i.test(response)) {
       this.allowAuth = true
     }
@@ -240,15 +321,12 @@ export class WorkerMailer {
     if (/[ -]AUTH(?:(\s+|=)[^\n]*\s+|\s+|=)CRAM-MD5/i.test(response)) {
       this.authTypeSupported.push('cram-md5')
     }
-  }
-
-  private async helo() {
-    await this.writeLine(`HELO 127.0.0.1`)
-    const response = await this.readTimeout()
-    if (response.startsWith('2')) {
-      return
+    if (/[ -]STARTTLS\b/i.test(response)) {
+      this.supportsStartTls = true
     }
-    throw new Error(`Failed to HELO. ${response}`)
+    if (/[ -]DSN\b/i.test(response)) {
+      this.supportsDSN = true
+    }
   }
 
   private async auth() {
@@ -338,21 +416,31 @@ export class WorkerMailer {
   }
 
   private async mail() {
-    await this.writeLine(`MAIL FROM: <${this.emailSending!.from.email}>`)
+    let message = `MAIL FROM: <${this.emailSending!.from.email}>`
+    if (this.supportsDSN) {
+      message += ` ${this.retBuilder()}`
+      if (this.emailSending?.dsnOverride?.envelopeId) {
+        message += ` ENVID=${this.emailSending?.dsnOverride?.envelopeId}`
+      }
+    }
+
+    await this.writeLine(message)
     const response = await this.readTimeout()
     if (!response.startsWith('2')) {
-      throw new Error(
-        `Invalid MAIL FROM: ${this.emailSending!.from.email} ${response}`,
-      )
+      throw new Error(`Invalid ${message} ${response}`)
     }
   }
 
   private async rcpt() {
     for (let user of this.emailSending!.to) {
-      await this.writeLine(`RCPT TO: <${user.email}>`)
+      let message = `RCPT TO: <${user.email}>`
+      if (this.supportsDSN) {
+        message += this.notificationBuilder()
+      }
+      await this.writeLine(message)
       const rcptResponse = await this.readTimeout()
       if (!rcptResponse.startsWith('2')) {
-        throw new Error(`Invalid RCPT TO ${user.email}: ${rcptResponse}`)
+        throw new Error(`Invalid ${message} ${rcptResponse}`)
       }
     }
   }
@@ -379,5 +467,52 @@ export class WorkerMailer {
     if (!response.startsWith('2')) {
       throw new Error(`Failed to reset: ${response}`)
     }
+  }
+
+  private notificationBuilder() {
+    const notifications: string[] = []
+    if (
+      (this.emailSending?.dsnOverride?.NOTIFY &&
+        this.emailSending?.dsnOverride?.NOTIFY?.SUCCESS) ||
+      (!this.emailSending?.dsnOverride?.NOTIFY && this.dsn?.NOTIFY?.SUCCESS)
+    ) {
+      notifications.push('SUCCESS')
+    }
+    if (
+      (this.emailSending?.dsnOverride?.NOTIFY &&
+        this.emailSending?.dsnOverride?.NOTIFY?.FAILURE) ||
+      (!this.emailSending?.dsnOverride?.NOTIFY && this.dsn?.NOTIFY?.FAILURE)
+    ) {
+      notifications.push('FAILURE')
+    }
+    if (
+      (this.emailSending?.dsnOverride?.NOTIFY &&
+        this.emailSending?.dsnOverride?.NOTIFY?.DELAY) ||
+      (!this.emailSending?.dsnOverride?.NOTIFY && this.dsn?.NOTIFY?.DELAY)
+    ) {
+      notifications.push('DELAY')
+    }
+    return notifications.length > 0
+      ? ` NOTIFY=${notifications.join(',')}`
+      : 'NOTIFY=NEVER'
+  }
+
+  private retBuilder() {
+    const ret: string[] = []
+    if (
+      (this.emailSending?.dsnOverride?.RET &&
+        this.emailSending?.dsnOverride?.RET?.HEADERS) ||
+      (!this.emailSending?.dsnOverride?.RET && this.dsn?.RET?.HEADERS)
+    ) {
+      ret.push('HDRS')
+    }
+    if (
+      (this.emailSending?.dsnOverride?.RET &&
+        this.emailSending?.dsnOverride?.RET?.FULL) ||
+      (!this.emailSending?.dsnOverride?.RET && this.dsn?.RET?.FULL)
+    ) {
+      ret.push('FULL')
+    }
+    return ret.length > 0 ? `RET=${ret.join(',')}` : ''
   }
 }

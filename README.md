@@ -11,10 +11,9 @@ Worker Mailer is an SMTP client that runs on Cloudflare Workers. It leverages [C
 
 - 🚀 Completely built on the Cloudflare Workers runtime with no other dependencies
 - 📝 Full TypeScript type support
-- 📧 Supports sending plain text and HTML emails
+- 📧 Supports sending plain text and HTML emails with attachments
 - 🔒 Supports multiple SMTP authentication methods: `plain`, `login`, and `CRAM-MD5`
-- 👥 Rich recipient options: TO, CC, BCC, and Reply-To
-- 🎨 Custom email headers support
+- 📅 DSN support
 
 ## Table of Contents
 
@@ -67,6 +66,31 @@ await mailer.send({
 })
 ```
 
+3. Using with modern JavaScript frameworks (Next.js, Nuxt, SvelteKit, etc.)
+
+When working with frameworks that use Node.js as their development runtime, you'll need to handle the fact that Cloudflare Workers-specific APIs (like `cloudflare:sockets`) aren't available during local development.
+
+The recommended approach is to use conditional dynamic imports. Here's an example for Nuxt.js:
+
+```typescript
+export default defineEventHandler(async event => {
+  // Check if running in development environment
+  if (import.meta.dev) {
+    // Development: Use nodemailer (or any Node.js compatible email library)
+    const nodemailer = await import('nodemailer')
+    const transporter = nodemailer.default.createTransport()
+    return await transporter.sendMail()
+  } else {
+    // Production: Use worker-mailer in Cloudflare Workers environment
+    const { WorkerMailer } = await import('worker-mailer')
+    const mailer = await WorkerMailer.connect()
+    return await mailer.send()
+  }
+})
+```
+
+This pattern ensures your application works seamlessly in both development and production environments.
+
 ## API Reference
 
 ### WorkerMailer.connect(options)
@@ -78,6 +102,7 @@ type WorkerMailerOptions = {
   host: string // SMTP server hostname
   port: number // SMTP server port (usually 587 or 465)
   secure?: boolean // Use TLS (default: false)
+  startTls?: boolean // Upgrade to TLS if SMTP server supports (default: true)
   credentials?: {
     // SMTP authentication credentials
     username: string
@@ -91,6 +116,17 @@ type WorkerMailerOptions = {
   logLevel?: LogLevel // Logging level (default: LogLevel.INFO)
   socketTimeoutMs?: number // Socket timeout in milliseconds
   responseTimeoutMs?: number // Server response timeout in milliseconds
+  dsn?: {
+    RET?: {
+      HEADERS?: boolean
+      FULL?: boolean
+    }
+    NOTIFY?: {
+      DELAY?: boolean
+      FAILURE?: boolean
+      SUCCESS?: boolean
+    }
+  }
 }
 ```
 
@@ -146,6 +182,19 @@ type EmailOptions = {
   html?: string // HTML content
   headers?: Record<string, string> // Custom email headers
   attachments?: { filename: string; content: string; mimeType?: string }[] // Attachments, content must be base64-encoded, it will try to infer mimeType if not set
+  dsnOverride?: // overrides dsn defined in WorkerMailer, if not set, it will take the WorkerMailer-Option.
+  {
+    envelopeId?: string | undefined
+    RET?: {
+      HEADERS?: boolean
+      FULL?: boolean
+    }
+    NOTIFY?: {
+      DELAY?: boolean
+      FAILURE?: boolean
+      SUCCESS?: boolean
+    }
+  }
 }
 ```
 
@@ -188,7 +237,65 @@ await WorkerMailer.send(
 
 ## Contributing
 
-We welcome your contributions! If you encounter any issues or have suggestions while using this library, feel free to open an issue on our GitHub repository.
+### Development Workflow
+
+> For major changes, please open an issue first to discuss what you would like to change.
+
+1. Fork and clone the repository
+2. Install dependencies:
+   ```bash
+   pnpm install
+   ```
+3. Create a new branch for your feature from `develop`:
+   ```bash
+   git checkout -b feat/your-feature-name
+   ```
+4. Make your changes and make sure all tests pass
+5. Update README.md & changelog `pnpm changeset` if needed
+6. Push your changes to your fork and create a pull request from your branch to `develop`
+
+### Testing
+
+1. Unit Tests:
+   ```bash
+   npm test
+   ```
+2. Integration Tests:
+   ```bash
+   pnpm dlx wrangler dev ./test/worker.ts
+   ```
+   Then, send a POST request to `http://127.0.0.1:8787` with the following JSON body:
+   ```json
+   {
+     "config": {
+       "credentials": {
+         "username": "xxx@xx.com",
+         "password": "xxxx"
+       },
+       "authType": "plain",
+       "host": "smtp.acme.com",
+       "port": 587,
+       "secure": false,
+       "startTls": true
+     },
+     "email": {
+       "from": "xxx@xx.com",
+       "to": "yyy@yy.com",
+       "subject": "Test Email",
+       "text": "Hello World"
+     }
+   }
+   ```
+
+### Reporting Issues
+
+When reporting issues, please include:
+
+- Version of worker-mailer you're using
+- A clear description of the problem
+- Steps to reproduce the issue
+- Expected vs actual behavior
+- Any relevant code snippets or error messages
 
 ## License
 

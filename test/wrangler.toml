@@ -1,15 +1,4 @@
-name = "test-worker-mailer"
+name = "worker-mailer-tester"
 main = "test/worker.ts"
 compatibility_date = "2024-07-25"
 compatibility_flags = ["nodejs_compat"]
-
-[vars]
-SMTP_SERVER_HOST = "smtp.acme.com"
-SMTP_SERVER_PORT = 465
-SMTP_SERVER_USERNAME = "x@acme.com"
-SMTP_SERVER_PASSWORD = "password"
-SMTP_SERVER_SECURE = true
-SMTP_SERVER_AUTH_METHOD = ["plain", "login"]
-
-EMAIL_FROM = "x@acme.com"
-EMAIL_TO = "y@acme.com"
