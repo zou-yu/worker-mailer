@@ -34,12 +34,14 @@ npm i worker-mailer
 ## Quick Start
 
 1. Configure your `wrangler.toml`:
+
 ```toml
 compatibility_flags = ["nodejs_compat"]
 # or compatibility_flags = ["nodejs_compat_v2"]
 ```
 
 2. Use in your code:
+
 ```typescript
 import { WorkerMailer } from 'worker-mailer'
 
@@ -61,7 +63,7 @@ await mailer.send({
   to: { name: 'Alice', email: 'alice@acme.com' },
   subject: 'Hello from Worker Mailer',
   text: 'This is a plain text message',
-  html: '<h1>Hello</h1><p>This is an HTML message</p>'
+  html: '<h1>Hello</h1><p>This is an HTML message</p>',
 })
 ```
 
@@ -94,30 +96,52 @@ Sends an email.
 
 ```typescript
 type EmailOptions = {
-  from: string | {          // Sender's email
-    name?: string;
-    email: string;
-  };
-  to: string | string[] | { // Recipients (TO)
-    name?: string;
-    email: string;
-  } | Array<{ name?: string; email: string }>;
-  reply?: string | {        // Reply-To address
-    name?: string;
-    email: string;
-  };
-  cc?: string | string[] | { // Carbon Copy recipients
-    name?: string;
-    email: string;
-  } | Array<{ name?: string; email: string }>;
-  bcc?: string | string[] | { // Blind Carbon Copy recipients
-    name?: string;
-    email: string;
-  } | Array<{ name?: string; email: string }>;
-  subject: string;          // Email subject
-  text?: string;            // Plain text content
-  html?: string;            // HTML content
-  headers?: Record<string, string>; // Custom email headers
+  from:
+    | string
+    | {
+        // Sender's email
+        name?: string
+        email: string
+      }
+  to:
+    | string
+    | string[]
+    | {
+        // Recipients (TO)
+        name?: string
+        email: string
+      }
+    | Array<{ name?: string; email: string }>
+  reply?:
+    | string
+    | {
+        // Reply-To address
+        name?: string
+        email: string
+      }
+  cc?:
+    | string
+    | string[]
+    | {
+        // Carbon Copy recipients
+        name?: string
+        email: string
+      }
+    | Array<{ name?: string; email: string }>
+  bcc?:
+    | string
+    | string[]
+    | {
+        // Blind Carbon Copy recipients
+        name?: string
+        email: string
+      }
+    | Array<{ name?: string; email: string }>
+  subject: string // Email subject
+  text?: string // Plain text content
+  html?: string // HTML content
+  headers?: Record<string, string> // Custom email headers
+  attachments?: { filename: string; content: string; mimeType?: string }[] // Attachments, content must be base64-encoded, it will try to infer mimeType if not set
 }
 ```
 
@@ -133,16 +157,23 @@ await WorkerMailer.send(
     port: 587,
     credentials: {
       username: 'user',
-      password: 'pass'
-    }
+      password: 'pass',
+    },
   },
   {
     // EmailOptions
     from: 'sender@acme.com',
     to: 'recipient@acme.com',
     subject: 'Test',
-    text: 'Hello'
-  }
+    text: 'Hello',
+    attachments: [
+      {
+        filename: 'test.txt',
+        content: 'SGVsbG8gV29ybGQ=', // base64-encoded string for "Hello World"
+        type: 'text/plain',
+      },
+    ],
+  },
 )
 ```
 
