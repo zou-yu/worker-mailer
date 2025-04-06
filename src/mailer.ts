@@ -494,7 +494,7 @@ export class WorkerMailer {
     }
     return notifications.length > 0
       ? ` NOTIFY=${notifications.join(',')}`
-      : 'NOTIFY=NEVER'
+      : ' NOTIFY=NEVER'
   }
 
   private retBuilder() {
