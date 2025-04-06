@@ -1,5 +1,11 @@
 # worker-mailer
 
+## 1.1.1
+
+### Patch Changes
+
+- e14a156: fix: Add missing space before NOTIFY=NEVER
+
 ## 1.1.0
 
 ### Minor Changes
