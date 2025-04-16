@@ -246,7 +246,9 @@ export class WorkerMailer {
     try {
       await this.writeLine('QUIT')
       await this.readTimeout()
-      await this.socket.close()
+      this.socket
+        .close()
+        .catch(() => this.logger.error('Failed to close socket')) // If server-side close socket first it will never be solved, so just fire and forget
     } catch (ignore) {
       // maybe socket is closed now
       // anyway, just keep it simple
