@@ -1,5 +1,12 @@
 # worker-mailer
 
+## 1.1.2
+
+### Patch Changes
+
+- cb77d2b: fix: Socket close timeout by ignoring promise result
+- 90d0631: fix #23: some servers replied 550 MIME boundary length exceeded (see RFC 2046) to messages that were too long
+
 ## 1.1.1
 
 ### Patch Changes
