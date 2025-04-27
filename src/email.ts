@@ -177,7 +177,7 @@ export class Email {
   }
 
   private generateSafeBoundary(prefix: string): string {
-    let boundary = prefix + crypto.randomBytes(32).toString('hex')
+    let boundary = prefix + crypto.randomBytes(28).toString('hex')
 
     boundary = boundary.replace(/[<>@,;:\\/[\]?=" ]/g, '_') // Replace unwanted characters with '_'
 
