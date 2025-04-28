@@ -1,5 +1,11 @@
 # worker-mailer
 
+## 1.1.4
+
+### Patch Changes
+
+- 159934d: fix: Mime boundary length too long.
+
 ## 1.1.3
 
 ### Patch Changes
