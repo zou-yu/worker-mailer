@@ -176,6 +176,38 @@ describe('Email', () => {
       // letterparser does not support headers yet
       expect(data).toContain('X-Custom-Header: Custom Value')
     })
+
+    it('should not override custom standard headers', () => {
+      const email = new Email({
+        from: 'sender@example.com',
+        to: 'recipient@example.com',
+        cc: 'cc@example.com',
+        bcc: 'bcc@example.com',
+        reply: 'reply@example.com',
+        subject: 'Test Subject',
+        text: 'Hello World',
+        headers: {
+          'From': 'custom-from@example.com',
+          'To': 'custom-to@example.com',
+          'CC': 'custom-cc@example.com',
+          'BCC': 'custom-bcc@example.com',
+          'Reply-To': 'custom-reply@example.com',
+          'Subject': 'Custom Subject',
+          'X-Custom-Header': 'Custom Value'
+        },
+      })
+      const data = email.getEmailData()
+      
+      // Verify custom headers are preserved
+      expect(data).toContain('From: custom-from@example.com')
+      expect(data).toContain('To: custom-to@example.com')
+      expect(data).toContain('CC: custom-cc@example.com')
+      expect(data).toContain('BCC: custom-bcc@example.com')
+      expect(data).toContain('Reply-To: custom-reply@example.com')
+      expect(data).toContain('Subject: Custom Subject')
+      expect(data).toContain('X-Custom-Header: Custom Value')
+    })
+
   })
 
   it('should include attachments when provided', () => {
