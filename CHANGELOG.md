@@ -1,5 +1,11 @@
 # worker-mailer
 
+## 1.1.5
+
+### Patch Changes
+
+- 02cc185: fix: Email headers override
+
 ## 1.1.4
 
 ### Patch Changes
