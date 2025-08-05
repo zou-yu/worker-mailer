@@ -209,12 +209,15 @@ export class Email {
     this.resolveCC()
     this.resolveBCC()
     this.resolveSubject()
-    this.headers['Date'] = new Date().toUTCString()
-    this.headers['Message-ID'] =
+    this.headers['Date'] = this.headers['Date'] ?? new Date().toUTCString()
+    this.headers['Message-ID'] = this.headers['Message-ID'] ??
       `<${crypto.randomUUID()}@${this.from.email.split('@').pop()}>`
   }
 
   private resolveFrom() {
+    if (this.headers['From']) {
+      return
+    }
     let from = this.from.email
     if (this.from.name) {
       from = `${this.from.name} <${from}>`
@@ -223,6 +226,9 @@ export class Email {
   }
 
   private resolveTo() {
+    if (this.headers['To']) {
+      return
+    }
     const toAddresses = this.to.map(user => {
       if (user.name) {
         return `${user.name} <${user.email}>`
@@ -233,10 +239,16 @@ export class Email {
   }
 
   private resolveSubject() {
+    if (this.headers['Subject']) {
+      return
+    }
     this.headers['Subject'] = this.subject
   }
 
   private resolveReply() {
+    if (this.headers['Reply-To']) {
+      return
+    }
     if (this.reply) {
       let replyAddress = this.reply.email
       if (this.reply.name) {
@@ -247,6 +259,9 @@ export class Email {
   }
 
   private resolveCC() {
+    if (this.headers['CC']) {
+      return
+    }
     if (this.cc) {
       const ccAddresses = this.cc.map(user => {
         if (user.name) {
@@ -259,6 +274,9 @@ export class Email {
   }
 
   private resolveBCC() {
+    if (this.headers['BCC']) {
+      return
+    }
     if (this.bcc) {
       const bccAddresses = this.bcc.map(user => {
         if (user.name) {
