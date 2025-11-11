@@ -1,5 +1,11 @@
 # worker-mailer
 
+## 1.2.0
+
+### Minor Changes
+
+- f3a7fb2: Implement quoted-printable encoding
+
 ## 1.1.5
 
 ### Patch Changes
