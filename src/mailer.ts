@@ -450,7 +450,13 @@ export class WorkerMailer {
   }
 
   private async rcpt() {
-    for (let user of this.emailSending!.to) {
+    const allRecipients = [
+      ...this.emailSending!.to,
+      ...(this.emailSending!.cc || []),
+      ...(this.emailSending!.bcc || []),
+    ]
+
+    for (let user of allRecipients) {
       let message = `RCPT TO: <${user.email}>`
       if (this.supportsDSN) {
         message += this.notificationBuilder()
