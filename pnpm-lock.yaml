@@ -17,12 +17,18 @@ importers:
       '@cloudflare/workers-types':
         specifier: ^4.20240722.0
         version: 4.20240722.0
+      '@types/libqp':
+        specifier: ^1.1.3
+        version: 1.1.3
       '@types/node':
         specifier: ^20.14.12
         version: 20.14.12
       letterparser:
         specifier: ^0.1.8
         version: 0.1.8
+      libqp:
+        specifier: ^2.1.1
+        version: 2.1.1
       prettier:
         specifier: ^3.3.3
         version: 3.3.3
@@ -713,6 +719,9 @@ packages:
   '@types/estree@1.0.5':
     resolution: {integrity: sha512-/kYRxGDLWzHOB7q+wtSUQlFrtcdUccpfy+X+9iMBpHK8QLLhx2wIPYuS5DYtR9Wa/YlZAbIovy7qVdB1Aq6Lyw==}
 
+  '@types/libqp@1.1.3':
+    resolution: {integrity: sha512-sf/KYKzluoY67l1x8L1M7XVIzvqnvDVL0rUvEBWzeVlmv25BJKm9BrDZlLfsEwLgL47FpoW+ZJgEh8ystg9QyQ==}
+
   '@types/node-forge@1.3.11':
     resolution: {integrity: sha512-FQx220y22OKNTqaByeBGqHWYz4cl94tpcxeFdvBo3wjG6XPBuZ0BNgNZRV5J5TFmmcsJ4IzsLkmGRiQbnYsBEQ==}
 
@@ -1134,6 +1143,9 @@ packages:
 
   letterparser@0.1.8:
     resolution: {integrity: sha512-mptxVUiQ9fO496nvjFnchVbExvpZSh0ktXaxU4OxkLjwzB/QlLx70oNP4NqmQ6JCBK74HfHBZDJliaw6qu9B1A==}
+
+  libqp@2.1.1:
+    resolution: {integrity: sha512-0Wd+GPz1O134cP62YU2GTOPNA7Qgl09XwCqM5zpBv87ERCXdfDtyKXvV7c9U22yWJh44QZqBocFnXN11K96qow==}
 
   lilconfig@3.1.2:
     resolution: {integrity: sha512-eop+wDAvpItUys0FWkHIKeC9ybYrTGbU41U5K7+bttZZeohvnY7M9dZ5kB21GNWiFT2q1OoPTvncPCgSOVO5ow==}
@@ -2315,6 +2327,10 @@ snapshots:
 
   '@types/estree@1.0.5': {}
 
+  '@types/libqp@1.1.3':
+    dependencies:
+      '@types/node': 20.14.12
+
   '@types/node-forge@1.3.11':
     dependencies:
       '@types/node': 20.14.12
@@ -2797,6 +2813,8 @@ snapshots:
     dependencies:
       base64-js: 1.5.1
       lettercoder: 0.0.7
+
+  libqp@2.1.1: {}
 
   lilconfig@3.1.2: {}
 

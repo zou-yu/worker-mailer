@@ -1,5 +1,4 @@
 import { connect } from 'cloudflare:sockets'
-import { createHmac } from 'node:crypto'
 import { BlockingQueue, decode, encode, execTimeout } from './utils'
 import { Email, EmailOptions } from './email'
 import Logger, { LogLevel } from './logger'
@@ -405,9 +404,26 @@ export class WorkerMailer {
 
     // solve challenge
     const challenge = atob(challengeWithBase64Encoded)
-    const challengeSolved = createHmac('md5', this.credentials!.password)
-      .update(challenge)
-      .digest('hex')
+
+    // Import password as key
+    const keyData = encode(this.credentials!.password)
+    const key = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'MD5' },
+      false,
+      ['sign'],
+    )
+
+    // Sign the challenge
+    const challengeData = encode(challenge)
+    const signature = await crypto.subtle.sign('HMAC', key, challengeData)
+
+    // Convert to hex
+    const challengeSolved = Array.from(new Uint8Array(signature))
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('')
+
     await this.writeLine(
       btoa(`${this.credentials!.username} ${challengeSolved}`),
     )

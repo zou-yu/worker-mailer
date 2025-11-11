@@ -1,4 +1,37 @@
-import * as crypto from 'node:crypto'
+import { encode, encodeQuotedPrintable } from './utils'
+
+export function encodeHeader(text: string): string {
+  // If the text contains any non-ASCII characters, encode the whole string
+  if (!/[^\x00-\x7F]/.test(text)) {
+    return text
+  }
+  const bytes = encode(text)
+  let encoded = ''
+
+  for (const byte of bytes) {
+    // RFC 2047 specific rules for headers:
+    // - Printable ASCII except ?, =, _, and space
+    // - Space becomes underscore
+    if (
+      byte >= 33 &&
+      byte <= 126 &&
+      byte !== 63 &&
+      byte !== 61 &&
+      byte !== 95
+    ) {
+      // 63 = '?', 61 = '=', 95 = '_'
+      encoded += String.fromCharCode(byte)
+    } else if (byte === 32) {
+      // Space becomes underscore in headers (RFC 2047)
+      encoded += '_'
+    } else {
+      // Encode everything else
+      encoded += `=${byte.toString(16).toUpperCase().padStart(2, '0')}`
+    }
+  }
+
+  return `=?UTF-8?Q?${encoded}?=`
+}
 
 export type User = { name?: string; email: string }
 
@@ -134,18 +167,18 @@ export class Email {
 
     if (this.text) {
       emailData += `--${alternativeBoundary}\r\n`
-      emailData += `Content-Type: text/plain; charset="UTF-8"\r\n\r\n`
-      // maximum line length is 998 characters (see RFC 2046)
-      const lines = this.wrapText(this.text, 998)
-      emailData += `${lines.join('\r\n')}\r\n\r\n`
+      emailData += `Content-Type: text/plain; charset="UTF-8"\r\n`
+      emailData += `Content-Transfer-Encoding: quoted-printable\r\n\r\n`
+      const encodedText = encodeQuotedPrintable(this.text)
+      emailData += `${encodedText}\r\n\r\n`
     }
 
     if (this.html) {
       emailData += `--${alternativeBoundary}\r\n`
-      emailData += `Content-Type: text/html; charset="UTF-8"\r\n\r\n`
-      // maximum line length is 998 characters (see RFC 2046)
-      const lines = this.wrapText(this.html, 998)
-      emailData += `${lines.join('\r\n')}\r\n\r\n`
+      emailData += `Content-Type: text/html; charset="UTF-8"\r\n`
+      emailData += `Content-Transfer-Encoding: quoted-printable\r\n\r\n`
+      const encodedHtml = encodeQuotedPrintable(this.html)
+      emailData += `${encodedHtml}\r\n\r\n`
     }
 
     emailData += `--${alternativeBoundary}--\r\n`
@@ -171,14 +204,20 @@ export class Email {
         emailData += '\r\n\r\n'
       }
     }
-    emailData += `--${mixedBoundary}--\r\n.\r\n`
+    emailData += `--${mixedBoundary}--\r\n`
+    emailData += '\r\n.\r\n'
 
     return emailData
   }
 
   private generateSafeBoundary(prefix: string): string {
-    let boundary = prefix + crypto.randomBytes(28).toString('hex')
+    const bytes = new Uint8Array(28)
+    crypto.getRandomValues(bytes)
+    const hex = Array.from(bytes)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('')
 
+    let boundary = prefix + hex
     boundary = boundary.replace(/[<>@,;:\\/[\]?=" ]/g, '_') // Replace unwanted characters with '_'
 
     return boundary
@@ -210,7 +249,8 @@ export class Email {
     this.resolveBCC()
     this.resolveSubject()
     this.headers['Date'] = this.headers['Date'] ?? new Date().toUTCString()
-    this.headers['Message-ID'] = this.headers['Message-ID'] ??
+    this.headers['Message-ID'] =
+      this.headers['Message-ID'] ??
       `<${crypto.randomUUID()}@${this.from.email.split('@').pop()}>`
   }
 
@@ -220,7 +260,7 @@ export class Email {
     }
     let from = this.from.email
     if (this.from.name) {
-      from = `${this.from.name} <${from}>`
+      from = `"${encodeHeader(this.from.name)}" <${from}>`
     }
     this.headers['From'] = from
   }
@@ -231,7 +271,7 @@ export class Email {
     }
     const toAddresses = this.to.map(user => {
       if (user.name) {
-        return `${user.name} <${user.email}>`
+        return `"${encodeHeader(user.name)}" <${user.email}>`
       }
       return user.email
     })
@@ -242,7 +282,9 @@ export class Email {
     if (this.headers['Subject']) {
       return
     }
-    this.headers['Subject'] = this.subject
+    if (this.subject) {
+      this.headers['Subject'] = encodeHeader(this.subject)
+    }
   }
 
   private resolveReply() {
@@ -252,7 +294,7 @@ export class Email {
     if (this.reply) {
       let replyAddress = this.reply.email
       if (this.reply.name) {
-        replyAddress = `${this.reply.name} <${replyAddress}>`
+        replyAddress = `"${encodeHeader(this.reply.name)}" <${replyAddress}>`
       }
       this.headers['Reply-To'] = replyAddress
     }
@@ -265,7 +307,7 @@ export class Email {
     if (this.cc) {
       const ccAddresses = this.cc.map(user => {
         if (user.name) {
-          return `${user.name} <${user.email}>`
+          return `"${encodeHeader(user.name)}" <${user.email}>`
         }
         return user.email
       })
@@ -280,47 +322,11 @@ export class Email {
     if (this.bcc) {
       const bccAddresses = this.bcc.map(user => {
         if (user.name) {
-          return `${user.name} <${user.email}>`
+          return `"${encodeHeader(user.name)}" <${user.email}>`
         }
         return user.email
       })
       this.headers['BCC'] = bccAddresses.join(', ')
     }
-  }
-
-  private wrapText(text: string, maxLength = 998) {
-    const lines = []
-    let currentLine = ''
-
-    const words = text.match(/\S+/g) || [] // Matches non-whitespace chunks
-
-    for (const word of words) {
-      // if the word is longer than the max length, it is forcefully split into chunks
-      if (word.length > maxLength) {
-        if (currentLine) {
-          lines.push(currentLine)
-          currentLine = ''
-        }
-
-        for (let i = 0; i < word.length; i += maxLength) {
-          lines.push(word.slice(i, i + maxLength))
-        }
-      } else if (
-        // current line + word + space + 1 (for the space) <= max length
-        currentLine.length + word.length + (currentLine ? 1 : 0) <=
-        maxLength
-      ) {
-        currentLine += (currentLine ? ' ' : '') + word
-      } else {
-        lines.push(currentLine)
-        currentLine = word
-      }
-    }
-
-    if (currentLine) {
-      lines.push(currentLine)
-    }
-
-    return lines
   }
 }
