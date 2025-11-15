@@ -1,5 +1,11 @@
 # worker-mailer
 
+## 1.2.1
+
+### Patch Changes
+
+- 18cd709: fix: implement SMTP dot-stuffing (rfc 5321)
+
 ## 1.2.0
 
 ### Minor Changes
