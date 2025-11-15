@@ -205,9 +205,18 @@ export class Email {
       }
     }
     emailData += `--${mixedBoundary}--\r\n`
-    emailData += '\r\n.\r\n'
 
-    return emailData
+    const safeEmailData = this.applyDotStuffing(emailData)
+
+    return `${safeEmailData}\r\n.\r\n`
+  }
+
+  private applyDotStuffing(data: string): string {
+    let result = data.replace(/\r\n\./g, '\r\n..')
+    if (result.startsWith('.')) {
+      result = `.${result}`
+    }
+    return result
   }
 
   private generateSafeBoundary(prefix: string): string {

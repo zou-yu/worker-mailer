@@ -101,7 +101,12 @@ describe('Email', () => {
         html: `<p>${'Hello, this is a test email with a long text. '.repeat(50)}</p>`,
       })
       const data = email.getEmailData()
-      const msg = extract(data)
+      
+      // Note: letterparser doesn't perform SMTP dot-unstuffing (that's done by SMTP servers)
+      // So we need to manually remove dot-stuffing before parsing to simulate what an SMTP server would do
+      const unstuffedData = data.replace(/\r\n\.\./g, '\r\n.')
+      const msg = extract(unstuffedData)
+      
       // expect the text to be the same if linebreaks are removed (we are adding a space and removing all double spaces due to the way the text is wrapped)
       expect(msg.text!.replace(/\n/g, ' ').replaceAll('  ', ' ')).toBe(
         'Hello, this is a test email with a long text. '.repeat(50).trim(),
@@ -206,6 +211,25 @@ describe('Email', () => {
       expect(data).toContain('Reply-To: custom-reply@example.com')
       expect(data).toContain('Subject: Custom Subject')
       expect(data).toContain('X-Custom-Header: Custom Value')
+    })
+
+    it('should dot-stuff body lines starting with periods', () => {
+      const email = new Email({
+        from: 'sender@example.com',
+        to: 'recipient@example.com',
+        subject: 'Dot Stuffing',
+        text: '.\r\nLine two\r\n.Line three\r\n..Line four',
+      })
+
+      const data = email.getEmailData()
+      const terminatorIndex = data.lastIndexOf('\r\n.\r\n')
+      expect(terminatorIndex).toBeGreaterThan(0)
+
+      const body = data.slice(0, terminatorIndex)
+      expect(body).not.toContain('\r\n.\r\n')
+      expect(body).toContain('\r\n..\r\n')
+      expect(body).toContain('\r\n..Line three')
+      expect(body).toContain('\r\n...Line four')
     })
   })
 
