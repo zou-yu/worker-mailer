@@ -35,6 +35,7 @@ export type WorkerMailerOptions = {
     | undefined
   socketTimeoutMs?: number
   responseTimeoutMs?: number
+  name?: string
 }
 
 export class WorkerMailer {
@@ -49,6 +50,7 @@ export class WorkerMailer {
 
   private readonly socketTimeoutMs: number
   private readonly responseTimeoutMs: number
+  private readonly name: string
 
   private reader: ReadableStreamDefaultReader<Uint8Array>
   private readonly decoder = new TextDecoder()
@@ -105,6 +107,7 @@ export class WorkerMailer {
 
     this.socketTimeoutMs = options.socketTimeoutMs || 60_000
     this.responseTimeoutMs = options.responseTimeoutMs || 30_000
+    this.name = options.name || '[127.0.0.1]'
     this.socket = connect(
       {
         hostname: this.host,
@@ -276,7 +279,7 @@ export class WorkerMailer {
   }
 
   private async ehlo() {
-    await this.writeLine(`EHLO 127.0.0.1`)
+    await this.writeLine(`EHLO ${this.name}`)
     const response = await this.readTimeout()
     if (response.startsWith('421')) {
       throw new Error(`Failed to EHLO. ${response}`)
@@ -290,7 +293,7 @@ export class WorkerMailer {
   }
 
   private async helo() {
-    await this.writeLine(`HELO 127.0.0.1`)
+    await this.writeLine(`HELO ${this.name}`)
     const response = await this.readTimeout()
     if (response.startsWith('2')) {
       return

@@ -699,6 +699,53 @@ describe('WorkerMailer', () => {
     })
   })
 
+  describe('EHLO/HELO hostname', () => {
+    const writtenLines = () =>
+      mockWriter.write.mock.calls.map((call: [Uint8Array]) =>
+        new TextDecoder().decode(call[0]),
+      )
+
+    it('should send an address literal by default', async () => {
+      mockReader.read
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('220 smtp.example.com ready\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('250 smtp.example.com\r\n'),
+        })
+
+      await WorkerMailer.connect({ host: 'smtp.example.com', port: 587 })
+
+      expect(writtenLines()).toContain('EHLO [127.0.0.1]\r\n')
+    })
+
+    it('should send name with EHLO and the HELO fallback', async () => {
+      mockReader.read
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('220 smtp.example.com ready\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('502 Command not implemented\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('250 smtp.example.com\r\n'),
+        })
+
+      await WorkerMailer.connect({
+        host: 'smtp.example.com',
+        port: 587,
+        name: 'mail.example.org',
+      })
+
+      expect(writtenLines()).toEqual(
+        expect.arrayContaining([
+          'EHLO mail.example.org\r\n',
+          'HELO mail.example.org\r\n',
+        ]),
+      )
+    })
+  })
+
   describe('close', () => {
     it('should close connection properly', async () => {
       mockReader.read

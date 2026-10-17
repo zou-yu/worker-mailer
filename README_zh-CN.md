@@ -92,6 +92,7 @@ type WorkerMailerOptions = {
   logLevel?: LogLevel // 日志级别（默认：LogLevel.INFO）
   socketTimeoutMs?: number // Socket 超时时间（毫秒）
   responseTimeoutMs?: number // 服务器响应超时时间（毫秒）
+  name?: string // EHLO/HELO 时发送的客户端主机名（默认：[127.0.0.1]）
 }
 ```
 
