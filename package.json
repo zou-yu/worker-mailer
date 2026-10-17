@@ -25,7 +25,6 @@
     "format": "prettier '**/*.{json,ts,js,cjs,mjs,md}' --write --ignore-path .gitignore"
   },
   "devDependencies": {
-    "@changesets/cli": "^3.0.3",
     "@cloudflare/vitest-plugin": "^1.4.3",
     "@cloudflare/workers-types": "^5.20261016.1",
     "@types/libqp": "^1.1.3",

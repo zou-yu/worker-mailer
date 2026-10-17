@@ -252,8 +252,12 @@ await WorkerMailer.send(
    git checkout -b feat/your-feature-name
    ```
 4. Make your changes and make sure all tests pass
-5. Update README.md & changelog `pnpm changeset` if needed
+5. Update README.md if needed, and record a change intent with `pnpm change` for user-facing changes
 6. Push your changes to your fork and create a pull request from your branch to `develop`
+
+### Releasing
+
+Each push to `develop` with pending change intents opens or updates a `release: vX.Y.Z` pull request to `main` with the version bump and changelog. Merging it publishes to npm, creates the GitHub release, and syncs `develop`.
 
 ### Testing
 

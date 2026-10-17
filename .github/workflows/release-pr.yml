@@ -1,0 +1,57 @@
+name: Release PR
+
+on:
+  push:
+    branches: [ develop ]
+
+concurrency: release-pr
+
+jobs:
+  release-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24.x'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply change intents
+        id: version
+        run: |
+          pnpm -r version
+          if git diff --quiet package.json; then
+            echo "version=" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open or update the release PR
+        if: steps.version.outputs.version != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -C release
+          git add -A
+          git commit -m "release: v$VERSION"
+          git push -f origin release
+          notes=$(awk -v v="$VERSION" '$0 == "## " v { f = 1; next } /^## / { f = 0 } f' CHANGELOG.md)
+          if gh pr view release --json state -q .state | grep -q OPEN; then
+            gh pr edit release --title "release: v$VERSION" --body "$notes"
+          else
+            gh pr create --base main --head release --title "release: v$VERSION" --body "$notes"
+          fi
