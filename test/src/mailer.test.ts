@@ -664,6 +664,41 @@ describe('WorkerMailer', () => {
     })
   })
 
+  describe('server responses', () => {
+    it('should fail instead of spinning when the server closes the connection', async () => {
+      mockReader.read.mockResolvedValue({ value: undefined, done: true })
+
+      await expect(
+        WorkerMailer.connect({ host: 'smtp.example.com', port: 587 }),
+      ).rejects.toThrow('SMTP connection closed by server')
+      expect(mockReader.read).toHaveBeenCalledTimes(1)
+    })
+
+    it('should use responseTimeoutMs for server responses', async () => {
+      mockReader.read.mockReturnValue(new Promise(() => {})) // Never resolves
+
+      await expect(
+        WorkerMailer.connect({
+          host: 'smtp.example.com',
+          port: 587,
+          socketTimeoutMs: 60_000,
+          responseTimeoutMs: 50,
+        }),
+      ).rejects.toThrow('Timeout while waiting for smtp server response')
+    })
+
+    it('should decode multi-byte characters split across chunks', async () => {
+      const bytes = new TextEncoder().encode('554 拒绝连接\r\n')
+      mockReader.read
+        .mockResolvedValueOnce({ value: bytes.subarray(0, 5) }) // splits 拒
+        .mockResolvedValueOnce({ value: bytes.subarray(5) })
+
+      await expect(
+        WorkerMailer.connect({ host: 'smtp.example.com', port: 587 }),
+      ).rejects.toThrow('554 拒绝连接')
+    })
+  })
+
   describe('close', () => {
     it('should close connection properly', async () => {
       mockReader.read
