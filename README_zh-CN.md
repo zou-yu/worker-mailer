@@ -205,9 +205,14 @@ await WorkerMailer.send(
 
 1. 单元测试：
    ```bash
-   npm test
+   pnpm test
    ```
-2. 集成测试:
+2. 集成测试，连接本地的 [Mailpit](https://mailpit.axllent.org) SMTP 服务器：
+   ```bash
+   docker run -d -p 1025:1025 -p 8025:8025 -e MP_SMTP_AUTH_ACCEPT_ANY=1 -e MP_SMTP_AUTH_ALLOW_INSECURE=1 axllent/mailpit
+   pnpm test:integration
+   ```
+3. 手动测试，连接真实的 SMTP 服务器：
    ```bash
    pnpm dlx wrangler dev ./test/worker.ts
    ```
