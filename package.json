@@ -21,7 +21,8 @@
   "packageManager": "pnpm@12.14.0",
   "scripts": {
     "build": "tsup",
-    "test": "vitest",
+    "test": "vitest --project unit",
+    "test:integration": "vitest run --project integration",
     "format": "prettier '**/*.{json,ts,js,cjs,mjs,md}' --write --ignore-path .gitignore"
   },
   "devDependencies": {

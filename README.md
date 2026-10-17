@@ -263,9 +263,14 @@ Each push to `develop` with pending change intents opens or updates a `release: 
 
 1. Unit Tests:
    ```bash
-   npm test
+   pnpm test
    ```
-2. Integration Tests:
+2. Integration Tests, against a local [Mailpit](https://mailpit.axllent.org) SMTP server:
+   ```bash
+   docker run -d -p 1025:1025 -p 8025:8025 -e MP_SMTP_AUTH_ACCEPT_ANY=1 -e MP_SMTP_AUTH_ALLOW_INSECURE=1 axllent/mailpit
+   pnpm test:integration
+   ```
+3. Manual Tests, against a real SMTP server:
    ```bash
    pnpm dlx wrangler dev ./test/worker.ts
    ```

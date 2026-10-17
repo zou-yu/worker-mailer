@@ -8,4 +8,19 @@ export default defineConfig({
       main: './test/worker.ts',
     }),
   ],
+  test: {
+    projects: [
+      {
+        extends: true,
+        test: { name: 'unit', include: ['test/src/**/*.test.ts'] },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'integration',
+          include: ['test/integration/**/*.test.ts'],
+        },
+      },
+    ],
+  },
 })
