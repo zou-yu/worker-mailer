@@ -116,6 +116,7 @@ type WorkerMailerOptions = {
   logLevel?: LogLevel // Logging level (default: LogLevel.INFO)
   socketTimeoutMs?: number // Socket timeout in milliseconds
   responseTimeoutMs?: number // Server response timeout in milliseconds
+  name?: string // Client hostname sent with EHLO/HELO (default: [127.0.0.1])
   dsn?: {
     RET?: {
       HEADERS?: boolean
