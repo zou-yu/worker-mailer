@@ -1,5 +1,5 @@
 import { connect } from 'cloudflare:sockets'
-import { BlockingQueue, decode, encode, execTimeout } from './utils'
+import { BlockingQueue, encode, execTimeout } from './utils'
 import { Email, EmailOptions } from './email'
 import Logger, { LogLevel } from './logger'
 
@@ -35,6 +35,7 @@ export type WorkerMailerOptions = {
     | undefined
   socketTimeoutMs?: number
   responseTimeoutMs?: number
+  name?: string
 }
 
 export class WorkerMailer {
@@ -49,8 +50,10 @@ export class WorkerMailer {
 
   private readonly socketTimeoutMs: number
   private readonly responseTimeoutMs: number
+  private readonly name: string
 
   private reader: ReadableStreamDefaultReader<Uint8Array>
+  private readonly decoder = new TextDecoder()
   private writer: WritableStreamDefaultWriter<Uint8Array>
 
   private readonly logger: Logger
@@ -103,7 +106,8 @@ export class WorkerMailer {
     this.dsn = options.dsn || {}
 
     this.socketTimeoutMs = options.socketTimeoutMs || 60_000
-    this.responseTimeoutMs = options.socketTimeoutMs || 30_000
+    this.responseTimeoutMs = options.responseTimeoutMs || 30_000
+    this.name = options.name || '[127.0.0.1]'
     this.socket = connect(
       {
         hostname: this.host,
@@ -160,11 +164,14 @@ export class WorkerMailer {
   private async read(): Promise<string> {
     let response = ''
     while (true) {
-      const { value } = await this.reader.read()
+      const { value, done } = await this.reader.read()
+      if (done) {
+        throw new Error('SMTP connection closed by server')
+      }
       if (!value) {
         continue
       }
-      const data = decode(value).toString()
+      const data = this.decoder.decode(value, { stream: true })
       this.logger.debug('SMTP server response:\n' + data)
       response = response + data
       if (!response.endsWith('\n')) {
@@ -272,7 +279,7 @@ export class WorkerMailer {
   }
 
   private async ehlo() {
-    await this.writeLine(`EHLO 127.0.0.1`)
+    await this.writeLine(`EHLO ${this.name}`)
     const response = await this.readTimeout()
     if (response.startsWith('421')) {
       throw new Error(`Failed to EHLO. ${response}`)
@@ -286,7 +293,7 @@ export class WorkerMailer {
   }
 
   private async helo() {
-    await this.writeLine(`HELO 127.0.0.1`)
+    await this.writeLine(`HELO ${this.name}`)
     const response = await this.readTimeout()
     if (response.startsWith('2')) {
       return
@@ -360,9 +367,9 @@ export class WorkerMailer {
   }
 
   private async authWithPlain() {
-    const userPassBase64 = btoa(
+    const userPassBase64 = encode(
       `\u0000${this.credentials!.username}\u0000${this.credentials!.password}`,
-    )
+    ).toBase64()
     await this.writeLine(`AUTH PLAIN ${userPassBase64}`)
     const authResult = await this.readTimeout()
     if (!authResult.startsWith('2')) {
@@ -377,14 +384,14 @@ export class WorkerMailer {
       throw new Error('Invalid login: ' + startLoginResponse)
     }
 
-    const usernameBase64 = btoa(this.credentials!.username)
+    const usernameBase64 = encode(this.credentials!.username).toBase64()
     await this.writeLine(usernameBase64)
     const userResponse = await this.readTimeout()
     if (!userResponse.startsWith('3')) {
       throw new Error('Failed to login authentication: ' + userResponse)
     }
 
-    const passwordBase64 = btoa(this.credentials!.password)
+    const passwordBase64 = encode(this.credentials!.password).toBase64()
     await this.writeLine(passwordBase64)
     const authResult = await this.readTimeout()
     if (!authResult.startsWith('2')) {
@@ -425,7 +432,7 @@ export class WorkerMailer {
       .join('')
 
     await this.writeLine(
-      btoa(`${this.credentials!.username} ${challengeSolved}`),
+      encode(`${this.credentials!.username} ${challengeSolved}`).toBase64(),
     )
     const authResult = await this.readTimeout()
     if (!authResult.startsWith('2')) {

@@ -1,0 +1,6 @@
+worker-mailer@1.3.0:
+  dir: ""
+  intents:
+    - helo-name-option
+    - stop-read-busy-loop
+    - utf8-auth-credentials

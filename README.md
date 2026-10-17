@@ -116,6 +116,7 @@ type WorkerMailerOptions = {
   logLevel?: LogLevel // Logging level (default: LogLevel.INFO)
   socketTimeoutMs?: number // Socket timeout in milliseconds
   responseTimeoutMs?: number // Server response timeout in milliseconds
+  name?: string // Client hostname sent with EHLO/HELO (default: [127.0.0.1])
   dsn?: {
     RET?: {
       HEADERS?: boolean
@@ -251,16 +252,25 @@ await WorkerMailer.send(
    git checkout -b feat/your-feature-name
    ```
 4. Make your changes and make sure all tests pass
-5. Update README.md & changelog `pnpm changeset` if needed
+5. Update README.md if needed, and record a change intent with `pnpm change` for user-facing changes
 6. Push your changes to your fork and create a pull request from your branch to `develop`
+
+### Releasing
+
+Each push to `develop` with pending change intents opens or updates a `release: vX.Y.Z` pull request to `main` with the version bump and changelog. Merging it publishes to npm, creates the GitHub release, and syncs `develop`.
 
 ### Testing
 
 1. Unit Tests:
    ```bash
-   npm test
+   pnpm test
    ```
-2. Integration Tests:
+2. Integration Tests, against a local [Mailpit](https://mailpit.axllent.org) SMTP server:
+   ```bash
+   docker run -d -p 1025:1025 -p 8025:8025 -e MP_SMTP_AUTH_ACCEPT_ANY=1 -e MP_SMTP_AUTH_ALLOW_INSECURE=1 axllent/mailpit
+   pnpm test:integration
+   ```
+3. Manual Tests, against a real SMTP server:
    ```bash
    pnpm dlx wrangler dev ./test/worker.ts
    ```

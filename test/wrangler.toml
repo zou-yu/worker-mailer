@@ -1,4 +1,4 @@
 name = "worker-mailer-tester"
 main = "test/worker.ts"
-compatibility_date = "2024-07-25"
+compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]

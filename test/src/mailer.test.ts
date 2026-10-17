@@ -301,6 +301,37 @@ describe('WorkerMailer', () => {
         }),
       ).rejects.toThrow('Failed to plain authentication')
     })
+
+    it('should UTF-8 encode non-Latin1 credentials', async () => {
+      mockReader.read
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('220 smtp.example.com ready\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode(
+            '250-smtp.example.com\r\n250 AUTH PLAIN LOGIN\r\n',
+          ),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('235 Authentication successful\r\n'),
+        })
+
+      await WorkerMailer.connect({
+        host: 'smtp.example.com',
+        port: 587,
+        credentials: { username: 'потребител', password: 'парола🔑' },
+        authType: ['plain'],
+      })
+
+      const expected = Buffer.from('\u0000потребител\u0000парола🔑').toString(
+        'base64',
+      )
+      expect(
+        mockWriter.write.mock.calls.map((call: [Uint8Array]) =>
+          new TextDecoder().decode(call[0]),
+        ),
+      ).toContain(`AUTH PLAIN ${expected}\r\n`)
+    })
   })
 
   describe('dsn', () => {
@@ -661,6 +692,88 @@ describe('WorkerMailer', () => {
       })
 
       await expect(sendPromise).rejects.toThrow('Invalid RCPT TO')
+    })
+  })
+
+  describe('server responses', () => {
+    it('should fail instead of spinning when the server closes the connection', async () => {
+      mockReader.read.mockResolvedValue({ value: undefined, done: true })
+
+      await expect(
+        WorkerMailer.connect({ host: 'smtp.example.com', port: 587 }),
+      ).rejects.toThrow('SMTP connection closed by server')
+      expect(mockReader.read).toHaveBeenCalledTimes(1)
+    })
+
+    it('should use responseTimeoutMs for server responses', async () => {
+      mockReader.read.mockReturnValue(new Promise(() => {})) // Never resolves
+
+      await expect(
+        WorkerMailer.connect({
+          host: 'smtp.example.com',
+          port: 587,
+          socketTimeoutMs: 60_000,
+          responseTimeoutMs: 50,
+        }),
+      ).rejects.toThrow('Timeout while waiting for smtp server response')
+    })
+
+    it('should decode multi-byte characters split across chunks', async () => {
+      const bytes = new TextEncoder().encode('554 拒绝连接\r\n')
+      mockReader.read
+        .mockResolvedValueOnce({ value: bytes.subarray(0, 5) }) // splits 拒
+        .mockResolvedValueOnce({ value: bytes.subarray(5) })
+
+      await expect(
+        WorkerMailer.connect({ host: 'smtp.example.com', port: 587 }),
+      ).rejects.toThrow('554 拒绝连接')
+    })
+  })
+
+  describe('EHLO/HELO hostname', () => {
+    const writtenLines = () =>
+      mockWriter.write.mock.calls.map((call: [Uint8Array]) =>
+        new TextDecoder().decode(call[0]),
+      )
+
+    it('should send an address literal by default', async () => {
+      mockReader.read
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('220 smtp.example.com ready\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('250 smtp.example.com\r\n'),
+        })
+
+      await WorkerMailer.connect({ host: 'smtp.example.com', port: 587 })
+
+      expect(writtenLines()).toContain('EHLO [127.0.0.1]\r\n')
+    })
+
+    it('should send name with EHLO and the HELO fallback', async () => {
+      mockReader.read
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('220 smtp.example.com ready\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('502 Command not implemented\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('250 smtp.example.com\r\n'),
+        })
+
+      await WorkerMailer.connect({
+        host: 'smtp.example.com',
+        port: 587,
+        name: 'mail.example.org',
+      })
+
+      expect(writtenLines()).toEqual(
+        expect.arrayContaining([
+          'EHLO mail.example.org\r\n',
+          'HELO mail.example.org\r\n',
+        ]),
+      )
     })
   })
 

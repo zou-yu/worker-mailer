@@ -92,6 +92,7 @@ type WorkerMailerOptions = {
   logLevel?: LogLevel // 日志级别（默认：LogLevel.INFO）
   socketTimeoutMs?: number // Socket 超时时间（毫秒）
   responseTimeoutMs?: number // 服务器响应超时时间（毫秒）
+  name?: string // EHLO/HELO 时发送的客户端主机名（默认：[127.0.0.1]）
 }
 ```
 
@@ -194,14 +195,24 @@ await WorkerMailer.send(
    ```bash
    git checkout -b feature/your-feature-name
    ```
+4. 用户可感知的改动需运行 `pnpm change` 记录变更
+
+### 发版
+
+`develop` 上有待发布的变更时，每次推送都会自动创建或更新一个合并到 `main` 的 `release: vX.Y.Z` PR，其中包含版本号和 CHANGELOG 的更新。合并该 PR 后会自动发布到 npm、创建 GitHub Release 并同步 `develop`。
 
 ### 测试
 
 1. 单元测试：
    ```bash
-   npm test
+   pnpm test
    ```
-2. 集成测试:
+2. 集成测试，连接本地的 [Mailpit](https://mailpit.axllent.org) SMTP 服务器：
+   ```bash
+   docker run -d -p 1025:1025 -p 8025:8025 -e MP_SMTP_AUTH_ACCEPT_ANY=1 -e MP_SMTP_AUTH_ALLOW_INSECURE=1 axllent/mailpit
+   pnpm test:integration
+   ```
+3. 手动测试，连接真实的 SMTP 服务器：
    ```bash
    pnpm dlx wrangler dev ./test/worker.ts
    ```
