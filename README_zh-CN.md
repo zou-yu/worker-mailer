@@ -195,6 +195,11 @@ await WorkerMailer.send(
    ```bash
    git checkout -b feature/your-feature-name
    ```
+4. 用户可感知的改动需运行 `pnpm change` 记录变更
+
+### 发版
+
+`develop` 上有待发布的变更时，每次推送都会自动创建或更新一个合并到 `main` 的 `release: vX.Y.Z` PR，其中包含版本号和 CHANGELOG 的更新。合并该 PR 后会自动发布到 npm、创建 GitHub Release 并同步 `develop`。
 
 ### 测试
 

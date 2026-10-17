@@ -9,13 +9,13 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
-    
+      id-token: write
+
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
@@ -23,23 +23,35 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: '24.x'
-          registry-url: 'https://registry.npmjs.org'
           package-manager-cache: false
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-        
+
       - name: Run tests
         run: pnpm test
-        
+
       - name: Build
         run: pnpm build
 
-      - name: Release
+      - name: Publish
+        run: pnpm publish -r --report-summary --no-git-checks
+
+      - name: Create GitHub release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        uses: changesets/action@v1
-        with:
-          publish: pnpm publish --no-git-checks
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(jq -r '.publishedPackages[0].version // empty' pnpm-publish-summary.json)
+          if [ -n "$version" ]; then
+            notes=$(awk -v v="$version" '$0 == "## " v { f = 1; next } /^## / { f = 0 } f' CHANGELOG.md)
+            gh release create "v$version" --target "$GITHUB_SHA" --title "v$version" --notes "$notes"
+          fi
+
+      - name: Sync develop
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin develop
+          git switch -C develop origin/develop
+          git merge --ff "$GITHUB_SHA" -m "chore: sync main into develop"
+          git push origin develop
