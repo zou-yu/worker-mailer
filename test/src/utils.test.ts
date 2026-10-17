@@ -130,7 +130,7 @@ describe('base64Encode', () => {
     expect(base64Encode('hello 🌍')).toBe('aGVsbG8g8J+MjQ==')
   })
 
-  it('should process very large strings in chunks without call stack errors', () => {
+  it('should encode very large strings', () => {
     const largeCyrillic = 'тест'.repeat(2000)
     expect(base64Encode(largeCyrillic)).toBe(
       Buffer.from(largeCyrillic, 'utf-8').toString('base64'),
