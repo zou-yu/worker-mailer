@@ -118,13 +118,11 @@ describe('base64Encode', () => {
   it('should safely encode complex AUTH PLAIN payloads with Cyrillic characters', () => {
     const username = 'потребител@example.bg'
     const password = 'парола'
-    
+
     const payload = `\u0000${username}\u0000${password}`
-    
-    // Using Buffer guarantees the expected base64 is accurately generated using Node's native bindings.
-    // It seamlessly adapts to any username or domain changes.
+
     const expectedBase64 = Buffer.from(payload, 'utf-8').toString('base64')
-    
+
     expect(base64Encode(payload)).toBe(expectedBase64)
   })
 
@@ -134,8 +132,10 @@ describe('base64Encode', () => {
 
   it('should process very large strings in chunks without call stack errors', () => {
     const largeCyrillic = 'тест'.repeat(2000)
-    expect(() => base64Encode(largeCyrillic)).not.toThrow()
-    
+    expect(base64Encode(largeCyrillic)).toBe(
+      Buffer.from(largeCyrillic, 'utf-8').toString('base64'),
+    )
+
     const largeAscii = 'a'.repeat(20000)
     expect(base64Encode(largeAscii)).toBe(btoa(largeAscii))
   })
