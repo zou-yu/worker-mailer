@@ -1,5 +1,5 @@
 import { connect } from 'cloudflare:sockets'
-import { BlockingQueue, decode, encode, execTimeout } from './utils'
+import { BlockingQueue, encode, execTimeout } from './utils'
 import { Email, EmailOptions } from './email'
 import Logger, { LogLevel } from './logger'
 
@@ -51,6 +51,7 @@ export class WorkerMailer {
   private readonly responseTimeoutMs: number
 
   private reader: ReadableStreamDefaultReader<Uint8Array>
+  private readonly decoder = new TextDecoder()
   private writer: WritableStreamDefaultWriter<Uint8Array>
 
   private readonly logger: Logger
@@ -103,7 +104,7 @@ export class WorkerMailer {
     this.dsn = options.dsn || {}
 
     this.socketTimeoutMs = options.socketTimeoutMs || 60_000
-    this.responseTimeoutMs = options.socketTimeoutMs || 30_000
+    this.responseTimeoutMs = options.responseTimeoutMs || 30_000
     this.socket = connect(
       {
         hostname: this.host,
@@ -160,11 +161,14 @@ export class WorkerMailer {
   private async read(): Promise<string> {
     let response = ''
     while (true) {
-      const { value } = await this.reader.read()
+      const { value, done } = await this.reader.read()
+      if (done) {
+        throw new Error('SMTP connection closed by server')
+      }
       if (!value) {
         continue
       }
-      const data = decode(value).toString()
+      const data = this.decoder.decode(value, { stream: true })
       this.logger.debug('SMTP server response:\n' + data)
       response = response + data
       if (!response.endsWith('\n')) {
