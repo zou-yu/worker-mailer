@@ -1,5 +1,17 @@
 # worker-mailer
 
+## 1.3.0
+
+### Minor Changes
+
+- feat: add a `name` option for the EHLO/HELO client hostname, and send the address literal `[127.0.0.1]` instead of a bare `127.0.0.1` by default (#55)
+
+### Patch Changes
+
+- fix: fail with "SMTP connection closed by server" instead of spinning when the server closes the connection while a reply is awaited, and honor the `responseTimeoutMs` option (#58)
+
+- fix: support non-Latin1 characters in SMTP credentials instead of throwing InvalidCharacterError during AUTH
+
 ## 1.2.1
 
 ### Patch Changes
