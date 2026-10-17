@@ -54,10 +54,6 @@ export function decode(data: Uint8Array): string {
   return decoder.decode(data)
 }
 
-export function base64Encode(str: string): string {
-  return encode(str).toBase64()
-}
-
 export function encodeQuotedPrintable(text: string, lineLength = 76): string {
   const bytes = encode(text)
   let result = ''
