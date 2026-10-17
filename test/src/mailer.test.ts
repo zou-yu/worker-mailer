@@ -301,6 +301,37 @@ describe('WorkerMailer', () => {
         }),
       ).rejects.toThrow('Failed to plain authentication')
     })
+
+    it('should UTF-8 encode non-Latin1 credentials', async () => {
+      mockReader.read
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('220 smtp.example.com ready\r\n'),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode(
+            '250-smtp.example.com\r\n250 AUTH PLAIN LOGIN\r\n',
+          ),
+        })
+        .mockResolvedValueOnce({
+          value: new TextEncoder().encode('235 Authentication successful\r\n'),
+        })
+
+      await WorkerMailer.connect({
+        host: 'smtp.example.com',
+        port: 587,
+        credentials: { username: 'потребител', password: 'парола🔑' },
+        authType: ['plain'],
+      })
+
+      const expected = Buffer.from('\u0000потребител\u0000парола🔑').toString(
+        'base64',
+      )
+      expect(
+        mockWriter.write.mock.calls.map((call: [Uint8Array]) =>
+          new TextDecoder().decode(call[0]),
+        ),
+      ).toContain(`AUTH PLAIN ${expected}\r\n`)
+    })
   })
 
   describe('dsn', () => {

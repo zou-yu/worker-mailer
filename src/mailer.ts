@@ -367,9 +367,9 @@ export class WorkerMailer {
   }
 
   private async authWithPlain() {
-    const userPassBase64 = btoa(
+    const userPassBase64 = encode(
       `\u0000${this.credentials!.username}\u0000${this.credentials!.password}`,
-    )
+    ).toBase64()
     await this.writeLine(`AUTH PLAIN ${userPassBase64}`)
     const authResult = await this.readTimeout()
     if (!authResult.startsWith('2')) {
@@ -384,14 +384,14 @@ export class WorkerMailer {
       throw new Error('Invalid login: ' + startLoginResponse)
     }
 
-    const usernameBase64 = btoa(this.credentials!.username)
+    const usernameBase64 = encode(this.credentials!.username).toBase64()
     await this.writeLine(usernameBase64)
     const userResponse = await this.readTimeout()
     if (!userResponse.startsWith('3')) {
       throw new Error('Failed to login authentication: ' + userResponse)
     }
 
-    const passwordBase64 = btoa(this.credentials!.password)
+    const passwordBase64 = encode(this.credentials!.password).toBase64()
     await this.writeLine(passwordBase64)
     const authResult = await this.readTimeout()
     if (!authResult.startsWith('2')) {
@@ -432,7 +432,7 @@ export class WorkerMailer {
       .join('')
 
     await this.writeLine(
-      btoa(`${this.credentials!.username} ${challengeSolved}`),
+      encode(`${this.credentials!.username} ${challengeSolved}`).toBase64(),
     )
     const authResult = await this.readTimeout()
     if (!authResult.startsWith('2')) {
