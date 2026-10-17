@@ -25,17 +25,17 @@
     "format": "prettier '**/*.{json,ts,js,cjs,mjs,md}' --write --ignore-path .gitignore"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.27.9",
-    "@cloudflare/vitest-pool-workers": "^0.4.5",
-    "@cloudflare/workers-types": "^4.20240722.0",
+    "@changesets/cli": "^3.0.3",
+    "@cloudflare/vitest-plugin": "^1.4.3",
+    "@cloudflare/workers-types": "^5.20261016.1",
     "@types/libqp": "^1.1.3",
-    "@types/node": "^20.14.12",
+    "@types/node": "^24.19.2",
     "letterparser": "^0.1.8",
-    "libqp": "^2.1.1",
-    "prettier": "^3.3.3",
-    "tsup": "^8.2.3",
-    "typescript": "^5.5.2",
-    "vitest": "1.5.0",
-    "wrangler": "^3.60.3"
+    "libqp": "^2.1.2",
+    "prettier": "^3.9.10",
+    "tsup": "^9.0.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.5",
+    "wrangler": "^4.151.0"
   }
 }
