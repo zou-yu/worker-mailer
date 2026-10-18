@@ -15,6 +15,8 @@ Worker Mailer is an SMTP client that runs on Cloudflare Workers. It leverages [C
 - 🔒 Supports multiple SMTP authentication methods: `plain`, `login`, and `CRAM-MD5`
 - 📅 DSN support
 
+> 💬 **Using worker-mailer?** Tell me what you're building in a [1-minute survey](https://tally.so/r/dbq4Ko). It shapes what I work on next.
+
 ## Table of Contents
 
 - [Installation](#installation)
