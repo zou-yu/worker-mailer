@@ -16,6 +16,8 @@ Worker Mailer 是一个运行在 Cloudflare Workers 上的 SMTP 客户端库，�
 - 👥 丰富的收件人选项：收件人、抄送、密送和回复地址
 - 🎨 支持自定义邮件头部
 
+> 💬 **在用 worker-mailer？** 花 1 分钟告诉我你在做什么：[问卷](https://tally.so/r/SURVEY_ID)。这会影响我接下来做什么。
+
 ## 目录
 
 - [安装](#安装)
