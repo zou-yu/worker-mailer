@@ -18,6 +18,8 @@ Worker Mailer 是一个运行在 Cloudflare Workers 上的 SMTP 客户端库，�
 
 > 💬 **在用 worker-mailer？** 花 1 分钟告诉我你在做什么：[问卷](https://tally.so/r/dbq4Ko)。这会影响我接下来做什么。
 
+> 🧪 **先测一下 SMTP 配置：** [smtptest.dev](https://smtptest.dev) 是基于 worker-mailer 的免费在线 SMTP 测试工具，跑的就是 Worker 里的同一套连接流程，会告诉你卡在哪一步（连接、TLS、登录还是发送）。
+
 ## 目录
 
 - [安装](#安装)
