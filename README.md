@@ -17,6 +17,8 @@ Worker Mailer is an SMTP client that runs on Cloudflare Workers. It leverages [C
 
 > 💬 **Using worker-mailer?** Tell me what you're building in a [1-minute survey](https://tally.so/r/dbq4Ko). It shapes what I work on next.
 
+> 🧪 **Check your SMTP settings first:** [smtptest.dev](https://smtptest.dev) is a free online SMTP test built on worker-mailer. It runs the same connection a Worker would and shows which step fails (connect, TLS, login or send).
+
 ## Table of Contents
 
 - [Installation](#installation)
