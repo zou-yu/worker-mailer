@@ -150,6 +150,10 @@ export class Email {
 
     const headersArray: string[] = ['MIME-Version: 1.0']
     for (const [key, value] of Object.entries(this.headers)) {
+      // Bcc recipients belong on the envelope only
+      if (key.toLowerCase() === 'bcc') {
+        continue
+      }
       headersArray.push(`${key}: ${value}`)
     }
     const mixedBoundary = this.generateSafeBoundary('mixed_')
@@ -255,7 +259,6 @@ export class Email {
     this.resolveTo()
     this.resolveReply()
     this.resolveCC()
-    this.resolveBCC()
     this.resolveSubject()
     this.headers['Date'] = this.headers['Date'] ?? new Date().toUTCString()
     this.headers['Message-ID'] =
@@ -321,21 +324,6 @@ export class Email {
         return user.email
       })
       this.headers['CC'] = ccAddresses.join(', ')
-    }
-  }
-
-  private resolveBCC() {
-    if (this.headers['BCC']) {
-      return
-    }
-    if (this.bcc) {
-      const bccAddresses = this.bcc.map(user => {
-        if (user.name) {
-          return `"${encodeHeader(user.name)}" <${user.email}>`
-        }
-        return user.email
-      })
-      this.headers['BCC'] = bccAddresses.join(', ')
     }
   }
 }
