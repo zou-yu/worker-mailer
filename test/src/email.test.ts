@@ -101,12 +101,12 @@ describe('Email', () => {
         html: `<p>${'Hello, this is a test email with a long text. '.repeat(50)}</p>`,
       })
       const data = email.getEmailData()
-      
+
       // Note: letterparser doesn't perform SMTP dot-unstuffing (that's done by SMTP servers)
       // So we need to manually remove dot-stuffing before parsing to simulate what an SMTP server would do
       const unstuffedData = data.replace(/\r\n\.\./g, '\r\n.')
       const msg = extract(unstuffedData)
-      
+
       // expect the text to be the same if linebreaks are removed (we are adding a space and removing all double spaces due to the way the text is wrapped)
       expect(msg.text!.replace(/\n/g, ' ').replaceAll('  ', ' ')).toBe(
         'Hello, this is a test email with a long text. '.repeat(50).trim(),
@@ -123,7 +123,7 @@ describe('Email', () => {
       }
     })
 
-    it('should include CC and BCC headers when provided', () => {
+    it('should include CC header but never a BCC header', () => {
       const email = new Email({
         from: 'sender@example.com',
         to: 'recipient@example.com',
@@ -143,9 +143,23 @@ describe('Email', () => {
           raw: '"CC2" <cc2@example.com>',
         },
       ])
-      expect(msg.bcc).toEqual([
-        { address: 'bcc@example.com', raw: 'bcc@example.com' },
-      ])
+      expect(data).not.toMatch(/^bcc:/im)
+      expect(data).not.toContain('bcc@example.com')
+    })
+
+    it('should strip custom BCC headers from the message', () => {
+      const email = new Email({
+        from: 'sender@example.com',
+        to: 'recipient@example.com',
+        bcc: 'bcc@example.com',
+        subject: 'Test Subject',
+        text: 'Hello World',
+        headers: { Bcc: 'custom-bcc@example.com', 'X-Custom': 'kept' },
+      })
+      const data = email.getEmailData()
+      expect(data).not.toMatch(/^bcc:/im)
+      expect(data).not.toContain('custom-bcc@example.com')
+      expect(data).toContain('X-Custom: kept')
     })
 
     it('should include Reply-To when provided', () => {
@@ -182,7 +196,7 @@ describe('Email', () => {
       expect(data).toContain('X-Custom-Header: Custom Value')
     })
 
-    it('should not override custom standard headers', () => {
+    it('should not override custom standard headers except BCC', () => {
       const email = new Email({
         from: 'sender@example.com',
         to: 'recipient@example.com',
@@ -207,7 +221,7 @@ describe('Email', () => {
       expect(data).toContain('From: custom-from@example.com')
       expect(data).toContain('To: custom-to@example.com')
       expect(data).toContain('CC: custom-cc@example.com')
-      expect(data).toContain('BCC: custom-bcc@example.com')
+      expect(data).not.toContain('custom-bcc@example.com')
       expect(data).toContain('Reply-To: custom-reply@example.com')
       expect(data).toContain('Subject: Custom Subject')
       expect(data).toContain('X-Custom-Header: Custom Value')
