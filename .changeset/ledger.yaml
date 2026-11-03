@@ -4,3 +4,7 @@ worker-mailer@1.3.0:
     - helo-name-option
     - stop-read-busy-loop
     - utf8-auth-credentials
+worker-mailer@1.3.1:
+  dir: ""
+  intents:
+    - omit-bcc-header
